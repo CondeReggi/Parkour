@@ -11,7 +11,11 @@
       "Bash(git add *)",
       "Bash(grep -E \"\\(node_modules|\\\\.env$|\\\\.db$|^out/\\)\")",
       "Bash(git push *)",
-      "Bash(grep -n \"^    </Card>\\\\|^  \\)$\" \"C:\\\\Users\\\\lconde\\\\Desktop\\\\Parkour APP\\\\src\\\\renderer\\\\features\\\\spots\\\\components\\\\SpotCard.tsx\")"
+      "Bash(grep -n \"^    </Card>\\\\|^  \\)$\" \"C:\\\\Users\\\\lconde\\\\Desktop\\\\Parkour APP\\\\src\\\\renderer\\\\features\\\\spots\\\\components\\\\SpotCard.tsx\")",
+      "Bash(git commit -m ' *)",
+      "Bash(taskkill /F /IM electron.exe)",
+      "Bash(taskkill /F /IM node.exe /FI \"WINDOWTITLE eq electron-vite*\")",
+      "Bash(grep -E \"\\(node_modules|\\\\.env$\\)\")"
     ]
   }
 }

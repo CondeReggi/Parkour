@@ -1,4 +1,5 @@
 import type { MainGoal, UserLevel } from './profile'
+import type { Visibility } from './sharing'
 
 export type RoutineLevel = UserLevel | 'any'
 export type FatigueLevel = 'low' | 'moderate' | 'high'
@@ -45,6 +46,13 @@ export interface RoutineDto {
   suitableForFatigue: RoutineSuitableFatigue
   avoidsInjuries: string[]
   blocks: RoutineBlockDto[]
+  /**
+   * =====  Fase 0: campos reservados para comunidad futura  =====
+   * Autor (null para built-in y para rutinas pre-auth) y visibilidad
+   * para cuando se pueda publicar.
+   */
+  authorAccountId: string | null
+  visibility: Visibility
 }
 
 export interface RoutineRecommendationDto {

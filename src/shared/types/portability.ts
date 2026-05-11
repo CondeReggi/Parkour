@@ -90,6 +90,9 @@ export interface ExportedCustomRoutine {
   estimatedMin: number
   suitableForFatigue: string
   avoidsInjuries: string
+  /** Reservado Fase 0. Por ahora siempre null en export (no exportamos
+   *  identidad de auth) y se rehidrata como null al importar. */
+  visibility: string
   createdAt: string
   updatedAt: string
 }
@@ -135,6 +138,9 @@ export interface ExportedSpot {
   /** Coordenadas opcionales del spot. */
   latitude: number | null
   longitude: number | null
+  /** Reservado Fase 0. La identidad de auth NO se exporta — el
+   *  authorAccountId se rehidrata como null en el destino. */
+  visibility: string
   createdAt: string
   updatedAt: string
 }
@@ -267,6 +273,8 @@ export interface ExportedVideoEntry {
   whatWentWell: string | null
   whatWentWrong: string | null
   reviewStatus: string
+  /** Reservado Fase 0. */
+  visibility: string
   createdAt: string
   updatedAt: string
 }

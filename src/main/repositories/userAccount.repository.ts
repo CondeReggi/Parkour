@@ -25,6 +25,11 @@ interface UserAccountRow {
   avatarUrl: string | null
   passwordHash: string | null
   profileId: string | null
+  // Campos reservados Fase 0 — comunidad futura
+  username: string | null
+  bio: string | null
+  coverImageUrl: string | null
+  isPublicProfile: boolean
   lastLoginAt: Date
   createdAt: Date
   updatedAt: Date
@@ -58,6 +63,10 @@ function toDto(row: UserAccountRow): AuthAccountDto {
     displayName: row.displayName,
     avatarUrl: row.avatarUrl,
     hasPassword: row.passwordHash !== null,
+    username: row.username,
+    bio: row.bio,
+    coverImageUrl: row.coverImageUrl,
+    isPublicProfile: row.isPublicProfile,
     lastLoginAt: row.lastLoginAt.toISOString(),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString()

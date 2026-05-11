@@ -36,6 +36,7 @@ import type {
 import { xpEventRepository } from './xpEvent.repository'
 import { questRepository } from './quest.repository'
 import { achievementRepository } from './achievement.repository'
+import { authService } from '../services/authService'
 
 const FULL_SPOT_INCLUDE = {
   obstacles: {
@@ -190,6 +191,8 @@ function spotToDto(s: SpotWithRelations, agg: SessionAgg | undefined): SpotDto {
     isFavorite: s.isFavorite,
     latitude: s.latitude,
     longitude: s.longitude,
+    authorAccountId: s.authorAccountId,
+    visibility: s.visibility as SpotDto['visibility'],
     photos: s.photos
       .slice()
       .sort((a, b) => a.order - b.order || a.createdAt.getTime() - b.createdAt.getTime())
@@ -239,6 +242,11 @@ export const spotRepository = {
   },
 
   async create(input: CreateSpotInput): Promise<SpotDto> {
+    // Fase 0: si hay sesión activa, sembramos el autor. Sin sesión
+    // queda null (caso teóricamente imposible porque AuthGuard
+    // protege la app, pero defendemos por si en el futuro hay flujos
+    // que bypaseen el guard).
+    const authorAccountId = await authService.getCurrentAccountId()
     const created = await prisma.spot.create({
       data: {
         name: input.name,
@@ -254,7 +262,9 @@ export const spotRepository = {
         tags: JSON.stringify(input.tags),
         isFavorite: input.isFavorite,
         latitude: input.latitude,
-        longitude: input.longitude
+        longitude: input.longitude,
+        authorAccountId
+        // visibility queda en su default ('private')
       },
       include: FULL_SPOT_INCLUDE
     })

@@ -1,3 +1,5 @@
+import type { Visibility } from './sharing'
+
 export type FloorType = 'concrete' | 'grass' | 'rubber' | 'mixed' | 'other'
 export type SpotRiskLevel = 'low' | 'moderate' | 'high'
 export type ObstacleType =
@@ -98,6 +100,13 @@ export interface SpotDto {
   sessionCount: number
   /** ISO string. Última vez que terminó una sesión asociada a este spot. */
   lastTrainedAt: string | null
+  /**
+   * =====  Fase 0: campos reservados para comunidad futura  =====
+   * Quién creó el spot (null si se creó antes de tener cuenta) y si
+   * está pensado para compartirse.
+   */
+  authorAccountId: string | null
+  visibility: Visibility
   createdAt: string
   updatedAt: string
 }

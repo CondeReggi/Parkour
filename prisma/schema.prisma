@@ -74,11 +74,25 @@ model UserProfile {
 /// cuentas separadas para el mismo usuario de Google si por algún motivo
 /// la mutación se reintenta.
 model UserAccount {
-  id             String        @id @default(cuid())
+  id              String        @id @default(cuid())
+  /// =====  Fase 0: campos reservados para comunidad futura  =====
+  /// Identificador público de la cuenta para URLs tipo /u/<username>.
+  /// Reservado en Fase 0 — todavía no hay UI para setearlo. Único,
+  /// nullable, lowercase. Se va a llenar al ofrecer onboarding cuando
+  /// llegue la comunidad.
+  username        String?       @unique
+  /// Texto libre para perfil público. Reservado.
+  bio             String?
+  /// URL de imagen de portada del perfil público. Reservado.
+  coverImageUrl   String?
+  /// Opt-in explícito para que el perfil aparezca en la comunidad.
+  /// Default false: identidad privada hasta que el usuario decida.
+  isPublicProfile Boolean       @default(false)
+  /// =====  Auth  =====
   /// Mecanismo de autenticación de esta cuenta:
   ///   - 'google'   → cuenta vinculada a Google vía OAuth.
   ///   - 'password' → cuenta local con email + contraseña hasheada.
-  provider       String
+  provider        String
   /// Identificador estable dentro del provider.
   ///   - Para 'google': el `sub` del id_token.
   ///   - Para 'password': el email normalizado (lowercase) — así el
@@ -107,6 +121,10 @@ model UserAccount {
   profile        UserProfile?  @relation(fields: [profileId], references: [id], onDelete: SetNull)
   /// Histórico de logins. La sesión activa la apunta AppSettings.currentAuthSessionId.
   sessions       AuthSession[]
+  /// =====  Fase 0: relaciones inversas con contenido que podrá publicarse =====
+  authoredSpots    Spot[]
+  authoredRoutines Routine[]
+  authoredVideos   VideoEntry[]
   lastLoginAt    DateTime      @default(now())
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
@@ -254,6 +272,15 @@ model Routine {
   avoidsInjuries     String           @default("[]") // JSON array<bodyPart>
   blocks             RoutineBlock[]
   workouts           WorkoutSession[]
+  /// =====  Fase 0: campos reservados para comunidad futura  =====
+  /// Autor de la rutina (sólo aplica a rutinas custom). Para built-in
+  /// queda null. Nullable hasta que tengamos UI de "publicar" / sync.
+  authorAccountId    String?
+  author             UserAccount?     @relation(fields: [authorAccountId], references: [id], onDelete: SetNull)
+  /// Visibilidad: 'private' (default, no se comparte) | 'public' |
+  /// 'unlisted'. La publicación real vive server-side; este flag es
+  /// sólo el opt-in del usuario.
+  visibility         String           @default("private")
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
 }
@@ -380,6 +407,13 @@ model Spot {
   idealMovements   SpotIdealMovement[]
   workouts         WorkoutSession[]
   videos           VideoEntry[]
+  /// =====  Fase 0: campos reservados para comunidad futura  =====
+  /// Autor de este spot. Se llena al crear si hay sesión activa. Para
+  /// spots viejos creados antes de la auth queda null.
+  authorAccountId  String?
+  author           UserAccount?        @relation(fields: [authorAccountId], references: [id], onDelete: SetNull)
+  /// Visibilidad. Default 'private': sólo se ve en este dispositivo.
+  visibility       String              @default("private")
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
 }
@@ -460,6 +494,12 @@ model VideoEntry {
   whatWentWell  String?
   whatWentWrong String?
   reviewStatus  String          @default("pending") // pending | reviewed | improved
+  /// =====  Fase 0: campos reservados para comunidad futura  =====
+  /// Autor del video. Se llena al crear si hay sesión activa.
+  authorAccountId String?
+  author          UserAccount?  @relation(fields: [authorAccountId], references: [id], onDelete: SetNull)
+  /// Visibilidad. Default 'private'.
+  visibility      String        @default("private")
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
 

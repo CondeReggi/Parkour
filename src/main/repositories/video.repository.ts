@@ -17,6 +17,7 @@ import type {
 import { xpEventRepository } from './xpEvent.repository'
 import { questRepository } from './quest.repository'
 import { achievementRepository } from './achievement.repository'
+import { authService } from '../services/authService'
 
 const VIDEO_INCLUDE = {
   movement: { select: { id: true, name: true, slug: true } },
@@ -46,6 +47,8 @@ function videoToDto(v: VideoWithRelations): VideoDto {
     whatWentWrong: v.whatWentWrong,
     reviewStatus: v.reviewStatus as VideoReviewStatus,
     fileMissing: !existsSync(v.filePath),
+    authorAccountId: v.authorAccountId,
+    visibility: v.visibility as VideoDto['visibility'],
     createdAt: v.createdAt.toISOString(),
     updatedAt: v.updatedAt.toISOString()
   }
@@ -78,6 +81,8 @@ export const videoRepository = {
   },
 
   async create(input: CreateVideoInput): Promise<VideoDto> {
+    // Fase 0: sembramos autor si hay sesión activa.
+    const authorAccountId = await authService.getCurrentAccountId()
     const created = await prisma.videoEntry.create({
       data: {
         filePath: input.filePath,
@@ -88,7 +93,9 @@ export const videoRepository = {
         notes: input.notes,
         whatWentWell: input.whatWentWell,
         whatWentWrong: input.whatWentWrong,
-        reviewStatus: input.reviewStatus
+        reviewStatus: input.reviewStatus,
+        authorAccountId
+        // visibility default 'private'
       },
       include: VIDEO_INCLUDE
     })

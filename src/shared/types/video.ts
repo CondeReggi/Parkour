@@ -1,3 +1,5 @@
+import type { Visibility } from './sharing'
+
 export type VideoReviewStatus = 'pending' | 'reviewed' | 'improved'
 
 export interface VideoMovementRef {
@@ -32,6 +34,11 @@ export interface VideoDto {
   reviewStatus: VideoReviewStatus
   /** El archivo en filePath ya no existe en disco. Se recalcula en cada lectura. */
   fileMissing: boolean
+  /**
+   * =====  Fase 0: campos reservados para comunidad futura  =====
+   */
+  authorAccountId: string | null
+  visibility: Visibility
   createdAt: string
   updatedAt: string
 }

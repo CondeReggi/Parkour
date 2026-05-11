@@ -107,6 +107,8 @@ export const exportPayloadSchema = z.object({
       estimatedMin: z.number().int(),
       suitableForFatigue: z.string(),
       avoidsInjuries: z.string(),
+      // Fase 0: default 'private' para exports viejos.
+      visibility: z.string().optional().default('private'),
       createdAt: isoString,
       updatedAt: isoString
     })
@@ -156,6 +158,8 @@ export const exportPayloadSchema = z.object({
       // de mapa.
       latitude: z.number().nullable().optional().default(null),
       longitude: z.number().nullable().optional().default(null),
+      // Fase 0.
+      visibility: z.string().optional().default('private'),
       createdAt: isoString,
       updatedAt: isoString
     })
@@ -256,6 +260,8 @@ export const exportPayloadSchema = z.object({
       whatWentWell: nullableStr,
       whatWentWrong: nullableStr,
       reviewStatus: z.string(),
+      // Fase 0.
+      visibility: z.string().optional().default('private'),
       createdAt: isoString,
       updatedAt: isoString
     })
@@ -446,6 +452,11 @@ export async function applyImportPayload(
           isBuiltIn: false,
           suitableForFatigue: r.suitableForFatigue,
           avoidsInjuries: r.avoidsInjuries,
+          visibility: r.visibility,
+          // Fase 0: la identidad de auth NO se exporta — el author
+          // queda null en el destino. Si más adelante hay sync con
+          // backend, el "reclamo de autoría" se hace ahí.
+          authorAccountId: null,
           createdAt: new Date(r.createdAt),
           updatedAt: new Date(r.updatedAt)
         }
@@ -506,6 +517,8 @@ export async function applyImportPayload(
           isFavorite: s.isFavorite,
           latitude: s.latitude,
           longitude: s.longitude,
+          visibility: s.visibility,
+          authorAccountId: null, // Fase 0: identidad no se importa
           createdAt: new Date(s.createdAt),
           updatedAt: new Date(s.updatedAt)
         }
@@ -656,6 +669,8 @@ export async function applyImportPayload(
           whatWentWell: v.whatWentWell,
           whatWentWrong: v.whatWentWrong,
           reviewStatus: v.reviewStatus,
+          visibility: v.visibility,
+          authorAccountId: null, // Fase 0: identidad no se importa
           createdAt: new Date(v.createdAt),
           updatedAt: new Date(v.updatedAt)
         }

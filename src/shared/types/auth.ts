@@ -27,6 +27,15 @@ export interface AuthAccountDto {
   avatarUrl: string | null
   /** True si la cuenta tiene contraseña local (provider='password'). */
   hasPassword: boolean
+  /**
+   * =====  Fase 0: campos reservados para comunidad futura  =====
+   * Hoy se exponen pero ninguna UI los setea todavía. Cuando llegue
+   * el onboarding de comunidad, se llenan.
+   */
+  username: string | null
+  bio: string | null
+  coverImageUrl: string | null
+  isPublicProfile: boolean
   /** ISO. Último login exitoso. */
   lastLoginAt: string
   createdAt: string

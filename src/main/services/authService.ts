@@ -199,5 +199,15 @@ export const authService = {
     accountId: string
   ): Promise<{ sessionId: string; account: AuthAccountDto }> {
     return startSessionFor(accountId)
+  },
+
+  /**
+   * Helper para los repos: id de la cuenta autenticada actual o null.
+   * Usado al crear entidades shareables (Spot, Routine custom, Video)
+   * para sembrar `authorAccountId`. No tira si no hay sesión.
+   */
+  async getCurrentAccountId(): Promise<string | null> {
+    const state = await this.getState()
+    return state.account?.id ?? null
   }
 }

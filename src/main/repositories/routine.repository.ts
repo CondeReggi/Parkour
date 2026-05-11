@@ -53,6 +53,8 @@ function toDto(r: RoutineWithRelations): RoutineDto {
     isBuiltIn: r.isBuiltIn,
     suitableForFatigue: r.suitableForFatigue as RoutineSuitableFatigue,
     avoidsInjuries: parseStringArray(r.avoidsInjuries),
+    authorAccountId: r.authorAccountId,
+    visibility: r.visibility as RoutineDto['visibility'],
     blocks: r.blocks
       .slice()
       .sort((a, b) => a.order - b.order)

@@ -260,6 +260,7 @@ export async function buildExportPayload(): Promise<ExportPayload> {
       estimatedMin: r.estimatedMin,
       suitableForFatigue: r.suitableForFatigue,
       avoidsInjuries: r.avoidsInjuries,
+      visibility: r.visibility,
       createdAt: r.createdAt.toISOString(),
       updatedAt: r.updatedAt.toISOString()
     })),
@@ -287,6 +288,7 @@ export async function buildExportPayload(): Promise<ExportPayload> {
       isFavorite: s.isFavorite,
       latitude: s.latitude,
       longitude: s.longitude,
+      visibility: s.visibility,
       createdAt: s.createdAt.toISOString(),
       updatedAt: s.updatedAt.toISOString()
     })),
@@ -328,6 +330,7 @@ export async function buildExportPayload(): Promise<ExportPayload> {
       whatWentWell: v.whatWentWell,
       whatWentWrong: v.whatWentWrong,
       reviewStatus: v.reviewStatus,
+      visibility: v.visibility,
       createdAt: v.createdAt.toISOString(),
       updatedAt: v.updatedAt.toISOString()
     })),
