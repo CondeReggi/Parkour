@@ -1,0 +1,525 @@
+// Parkour App — esquema de datos (MVP)
+//
+// Convenciones:
+// - Todos los IDs son cuid().
+// - Campos string libres usan String. Los "enums" se modelan como String con valores documentados.
+// - Arrays se serializan como JSON dentro de String (SQLite no soporta arrays nativos).
+// - Timestamps: createdAt/updatedAt en entidades mutables.
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// =========================================================
+// USUARIO
+// =========================================================
+
+/// Perfil del usuario. El MVP soporta múltiples perfiles pero usa uno activo.
+model UserProfile {
+  id                 String              @id @default(cuid())
+  // Datos básicos
+  name               String
+  age                Int?
+  heightCm           Float?
+  weightKg           Float?
+  // Experiencia
+  parkourExperience  String              @default("none") // none | lt6m | 6_12m | 1_2y | gt2y
+  previousSports     String?
+  dominantLeg        String              @default("right") // left | right | both
+  weakSide           String? // left | right | none
+  // Disponibilidad
+  daysAvailable      String              @default("[]") // JSON array: ["mon","tue",...]
+  sessionDurationMin Int                 @default(60)
+  // Objetivos
+  mainGoal           String              @default("technique") // technique | mobility | strength | general
+  preferredIntensity String              @default("moderate") // low | moderate | high
+  // Nivel calculado por la última evaluación (default beginner si nunca evalúa)
+  level              String              @default("beginner") // beginner | base | intermediate
+  // Relaciones
+  injuries           Injury[]
+  assessments        InitialAssessment[]
+  movementProgress   MovementProgress[]
+  workouts           WorkoutSession[]
+  xpEvents           XpEvent[]
+  quests             QuestAssignment[]
+  achievements       AchievementUnlock[]
+  dailyActivities    DailyActivity[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+}
+
+model Injury {
+  id          String      @id @default(cuid())
+  profileId   String
+  profile     UserProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  bodyPart    String // ankle | knee | wrist | shoulder | back | neck | other
+  description String?
+  severity    String      @default("mild") // mild | moderate | severe
+  isActive    Boolean     @default(true)
+  startedAt   DateTime    @default(now())
+  resolvedAt  DateTime?
+  notes       String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([profileId, isActive])
+}
+
+// =========================================================
+// EVALUACIÓN INICIAL
+// =========================================================
+
+model InitialAssessment {
+  id            String      @id @default(cuid())
+  profileId     String
+  profile       UserProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  // Fuerza (cantidades en 1 minuto / segundos para plancha)
+  pushUps       Int?
+  squats        Int?
+  plankSeconds  Int?
+  pullUps       Int?
+  // Movilidad self-rated 0-10
+  ankleMobility Int?
+  hipMobility   Int?
+  wristMobility Int?
+  // Estado mental 0-10
+  confidence    Int?
+  fear          Int?
+  pain          Int?
+  fatigue       Int?
+  // Resultado calculado
+  computedLevel String // beginner | base | intermediate
+  notes         String?
+  createdAt     DateTime    @default(now())
+
+  @@index([profileId, createdAt])
+}
+
+// =========================================================
+// BIBLIOTECA DE MOVIMIENTOS
+// =========================================================
+
+model Movement {
+  id                String                 @id @default(cuid())
+  slug              String                 @unique
+  name              String
+  category          String // landing | vault | climb | balance | precision | wall | core
+  description       String
+  difficulty        Int // 1-5
+  requiredLevel     String                 @default("beginner") // beginner | base | intermediate
+  risks             String // JSON array<string>
+  prerequisites     String // JSON array<slug>
+  commonMistakes    String // JSON array<string>
+  goodExecutionCues String // JSON array<string>
+  preparatoryDrills String // JSON array<string>
+  musclesInvolved   String // JSON array<string>
+  tags              String // JSON array<string>
+  /// Frase breve que describe qué se busca lograr a nivel técnico con
+  /// este movimiento. Distinto a `description`: es el "para qué" más
+  /// abstracto, útil como pitch al abrir el detalle.
+  technicalGoal     String?
+  /// Items concretos que el usuario debería repasar antes de practicar
+  /// este movimiento (entorno, calentamiento específico, regresiones).
+  /// JSON array<string>. Default vacío para mantener compatibilidad con
+  /// movements existentes hasta que el seed los rellene.
+  safetyChecklist   String                 @default("[]")
+  isBuiltIn         Boolean                @default(true)
+  // Relaciones
+  progressEntries   MovementProgress[]
+  workoutMovements  WorkoutMovement[]
+  videoEntries      VideoEntry[]
+  routineExercises  RoutineExercise[]
+  obstacleLinks     SpotObstacleMovement[]
+  idealAtSpots      SpotIdealMovement[]
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  @@index([category, difficulty])
+}
+
+model MovementProgress {
+  id              String      @id @default(cuid())
+  profileId       String
+  profile         UserProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  movementId      String
+  movement        Movement    @relation(fields: [movementId], references: [id], onDelete: Cascade)
+  status          String      @default("not_attempted") // not_attempted | practicing | mastered
+  notes           String?
+  lastPracticedAt DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@unique([profileId, movementId])
+  @@index([profileId, status])
+}
+
+// =========================================================
+// RUTINAS
+// =========================================================
+
+model Routine {
+  id                 String           @id @default(cuid())
+  slug               String?          @unique // null en rutinas generadas/personales
+  name               String
+  description        String?
+  goal               String // technique | mobility | strength | general
+  level              String // beginner | base | intermediate | any
+  estimatedMin       Int              @default(45)
+  isBuiltIn          Boolean          @default(true)
+  // Selectores para el recomendador
+  suitableForFatigue String           @default("any") // low | moderate | any
+  avoidsInjuries     String           @default("[]") // JSON array<bodyPart>
+  blocks             RoutineBlock[]
+  workouts           WorkoutSession[]
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+}
+
+model RoutineBlock {
+  id        String            @id @default(cuid())
+  routineId String
+  routine   Routine           @relation(fields: [routineId], references: [id], onDelete: Cascade)
+  type      String // warmup | technique | strength | mobility | cooldown
+  order     Int
+  exercises RoutineExercise[]
+  createdAt DateTime          @default(now())
+
+  @@index([routineId, order])
+}
+
+model RoutineExercise {
+  id          String       @id @default(cuid())
+  blockId     String
+  block       RoutineBlock @relation(fields: [blockId], references: [id], onDelete: Cascade)
+  // Si tiene movementId, hereda el contenido de Movement; si no, es ejercicio libre.
+  movementId  String?
+  movement    Movement?    @relation(fields: [movementId], references: [id], onDelete: SetNull)
+  name        String
+  description String?
+  sets        Int?
+  reps        Int?
+  durationSec Int?
+  restSec     Int?
+  notes       String?
+  order       Int
+
+  @@index([blockId, order])
+}
+
+// =========================================================
+// SESIONES DE ENTRENAMIENTO
+// =========================================================
+
+model WorkoutSession {
+  id                 String            @id @default(cuid())
+  profileId          String
+  profile            UserProfile       @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  routineId          String?
+  routine            Routine?          @relation(fields: [routineId], references: [id], onDelete: SetNull)
+  spotId             String?
+  spot               Spot?             @relation(fields: [spotId], references: [id], onDelete: SetNull)
+  startedAt          DateTime          @default(now())
+  endedAt            DateTime?
+  durationMin        Int?
+  // Checklist de seguridad
+  safetyTrafficLight String // green | yellow | red
+  safetyOverridden   Boolean           @default(false)
+  safetyNotes        String?
+  // Estado pre / post (0-10)
+  painBefore         Int?
+  painAfter          Int?
+  fatigueBefore      Int?
+  fatigueAfter       Int?
+  /// Energía percibida antes (0-10). Se pregunta en el check-in del coach guiado.
+  energyBefore       Int?
+  /// Objetivo del día declarado por el usuario en el check-in (string libre o uno
+  /// de technique | mobility | strength | general). Distinto de profile.mainGoal:
+  /// es el goal puntual de hoy, que puede override la recomendación.
+  goalOfDay          String?
+  /// Lugar de entrenamiento declarado en el check-in: home | spot | other.
+  /// Si es 'spot', spotId apunta a la entidad concreta.
+  place              String?
+  generalState       String?
+  personalNotes      String?
+  movements          WorkoutMovement[]
+  videos             VideoEntry[]
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  @@index([profileId, startedAt])
+}
+
+model WorkoutMovement {
+  id         String         @id @default(cuid())
+  sessionId  String
+  session    WorkoutSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  movementId String
+  movement   Movement       @relation(fields: [movementId], references: [id], onDelete: Cascade)
+  attempts   Int?
+  successful Int?
+  notes      String?
+  createdAt  DateTime       @default(now())
+
+  @@index([sessionId])
+}
+
+// =========================================================
+// SPOTS
+// =========================================================
+
+model Spot {
+  id               String              @id @default(cuid())
+  name             String
+  locationText     String?
+  description      String?
+  floorType        String? // concrete | grass | rubber | mixed | other
+  riskLevel        String              @default("moderate") // low | moderate | high
+  recommendedHours String?
+  beginnerFriendly Boolean             @default(false)
+  notes            String?
+  /// Tipo principal del spot. Marca la "vibe" del lugar para entrenar.
+  /// precision | vaults | wall | balance | strength | flow | mobility | low_risk
+  spotType         String?
+  /// Nivel recomendado para entrenar acá. beginner | base | intermediate
+  recommendedLevel String?
+  /// JSON array<string> con tags personales del usuario. Default vacío para
+  /// compatibilidad con spots creados antes de esta feature.
+  tags             String              @default("[]")
+  /// Si el usuario marcó el spot como favorito. Sirve para filtrar la lista.
+  isFavorite       Boolean             @default(false)
+  obstacles        SpotObstacle[]
+  photos           SpotPhoto[]
+  idealMovements   SpotIdealMovement[]
+  workouts         WorkoutSession[]
+  videos           VideoEntry[]
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+}
+
+/// Foto opcional asociada al spot. Igual que los videos: NO copiamos el
+/// archivo, sólo guardamos el path absoluto. Si el archivo desaparece del
+/// disco, la UI lo marca como faltante en lectura.
+model SpotPhoto {
+  id        String   @id @default(cuid())
+  spotId    String
+  spot      Spot     @relation(fields: [spotId], references: [id], onDelete: Cascade)
+  filePath  String
+  fileName  String
+  caption   String?
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([spotId, order])
+}
+
+/// Movimiento que el usuario marca como "ideal" para este spot. Distinto
+/// de SpotObstacleMovement (que es por obstáculo): este es a nivel de spot.
+model SpotIdealMovement {
+  spotId     String
+  spot       Spot     @relation(fields: [spotId], references: [id], onDelete: Cascade)
+  movementId String
+  movement   Movement @relation(fields: [movementId], references: [id], onDelete: Cascade)
+  notes      String?
+  createdAt  DateTime @default(now())
+
+  @@id([spotId, movementId])
+  @@index([spotId])
+}
+
+model SpotObstacle {
+  id                   String                 @id @default(cuid())
+  spotId               String
+  spot                 Spot                   @relation(fields: [spotId], references: [id], onDelete: Cascade)
+  name                 String
+  type                 String // wall | rail | bench | gap | stairs | ledge | other
+  riskLevel            String                 @default("moderate") // low | moderate | high
+  notes                String?
+  recommendedMovements SpotObstacleMovement[]
+  createdAt            DateTime               @default(now())
+
+  @@index([spotId])
+}
+
+model SpotObstacleMovement {
+  obstacleId String
+  obstacle   SpotObstacle @relation(fields: [obstacleId], references: [id], onDelete: Cascade)
+  movementId String
+  movement   Movement     @relation(fields: [movementId], references: [id], onDelete: Cascade)
+
+  @@id([obstacleId, movementId])
+}
+
+// =========================================================
+// VIDEOS
+// =========================================================
+
+model VideoEntry {
+  id            String          @id @default(cuid())
+  filePath      String // ruta absoluta en disco
+  fileName      String
+  thumbnailPath String?
+  durationSec   Int?
+  recordedAt    DateTime?
+  // Asociaciones opcionales
+  movementId    String?
+  movement      Movement?       @relation(fields: [movementId], references: [id], onDelete: SetNull)
+  spotId        String?
+  spot          Spot?           @relation(fields: [spotId], references: [id], onDelete: SetNull)
+  sessionId     String?
+  session       WorkoutSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  // Revisión
+  notes         String?
+  whatWentWell  String?
+  whatWentWrong String?
+  reviewStatus  String          @default("pending") // pending | reviewed | improved
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@index([movementId])
+  @@index([sessionId])
+}
+
+// =========================================================
+// CONFIGURACIÓN Y BACKUP
+// =========================================================
+
+/// Singleton: única fila id=1.
+model AppSettings {
+  id              Int       @id @default(1)
+  theme           String    @default("dark") // dark | light
+  activeProfileId String?
+  lastBackupAt    DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model BackupLog {
+  id        String   @id @default(cuid())
+  type      String // export_json | import_json | backup_db | restore_db
+  filePath  String?
+  succeeded Boolean
+  message   String?
+  createdAt DateTime @default(now())
+}
+
+// =========================================================
+// GAMIFICACIÓN (XP)
+// =========================================================
+
+/// Cada XpEvent es la unidad granular del sistema. La suma de amount sobre
+/// los XpEvent del perfil es el "XP total" desde el cual se calcula el nivel.
+///
+/// Dedup: el unique (profileId, source, sourceRefId) asegura que acciones
+/// que sólo cuentan una vez (marcar un movement como mastered, subir un
+/// video, etc.) no acumulen XP si la mutación se reintenta o el repo se
+/// llama dos veces. El repositorio captura P2002 y lo ignora.
+model XpEvent {
+  id          String      @id @default(cuid())
+  profileId   String
+  profile     UserProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  /// session_finalized | movement_practicing | movement_mastered |
+  /// video_uploaded | video_reviewed | spot_registered
+  source      String
+  /// id de la entidad que originó el evento (sessionId, movementId, videoId, spotId).
+  /// Forma la clave de dedup junto con profileId y source.
+  sourceRefId String
+  amount      Int
+  createdAt   DateTime    @default(now())
+
+  @@unique([profileId, source, sourceRefId])
+  @@index([profileId, createdAt])
+}
+
+// =========================================================
+// MISIONES (QUESTS)
+// =========================================================
+
+/// Instancia de misión asignada al perfil para un período (día/semana).
+/// El catálogo de misiones vive en código (services/quests.ts); al asignar
+/// hacemos snapshot del título, descripción, métrica, target y xpReward
+/// para que el historial sobreviva a cambios futuros del catálogo.
+///
+/// Dedup: el unique (profileId, templateSlug, startsAt) impide que se
+/// generen dos asignaciones de la misma misión para el mismo período.
+model QuestAssignment {
+  id           String      @id @default(cuid())
+  profileId    String
+  profile      UserProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  templateSlug String
+  title        String
+  description  String
+  type         String // daily | weekly
+  /// Identificador de la regla de progreso. Ver services/quests.ts.
+  metric       String // sessions_finalized | movements_practiced | movements_mastered |
+  //                     videos_uploaded | videos_reviewed | spots_registered |
+  //                     sessions_low_pain | recommended_routine_completed
+  target       Int
+  progress     Int         @default(0)
+  xpReward     Int
+  /// pending | completed | claimed
+  status       String      @default("pending")
+  startsAt     DateTime
+  expiresAt    DateTime
+  completedAt  DateTime?
+  claimedAt    DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@unique([profileId, templateSlug, startsAt])
+  @@index([profileId, type, expiresAt])
+  @@index([profileId, status])
+}
+
+// =========================================================
+// LOGROS (ACHIEVEMENTS)
+// =========================================================
+
+/// El catálogo de logros vive en código (services/achievements.ts).
+/// Esta tabla guarda sólo los desbloqueos del usuario. Un perfil puede
+/// desbloquear un logro como máximo una vez (unique (profileId, slug)).
+/// xpAwarded es snapshot por si la recompensa del catálogo cambia más
+/// adelante: el histórico mantiene lo que le dimos en su momento.
+model AchievementUnlock {
+  id         String      @id @default(cuid())
+  profileId  String
+  profile    UserProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  slug       String
+  xpAwarded  Int         @default(0)
+  unlockedAt DateTime    @default(now())
+
+  @@unique([profileId, slug])
+  @@index([profileId, unlockedAt])
+}
+
+// =========================================================
+// ACTIVIDAD DIARIA / RACHAS
+// =========================================================
+
+/// Acción explícita del usuario que ocupa el día (más allá de las
+/// sesiones, que ya están en WorkoutSession). Hoy sólo se usa para
+/// `active_recovery`: el usuario marca caminata, movilidad o algo
+/// liviano para mantener la racha sin entrenar fuerte.
+///
+/// Los días `training` se DERIVAN de WorkoutSession (no se duplican).
+/// Los días `rest` y `justified_rest` se calculan al vuelo en el
+/// servicio de rachas — no se guardan.
+model DailyActivity {
+  id        String      @id @default(cuid())
+  profileId String
+  profile   UserProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  /// Día normalizado a 00:00 hora local. Una fila por (perfil, día, tipo).
+  date      DateTime
+  /// Por ahora: 'active_recovery'. Reservado para futuras categorías.
+  type      String
+  notes     String?
+  createdAt DateTime    @default(now())
+
+  @@unique([profileId, date, type])
+  @@index([profileId, date])
+}

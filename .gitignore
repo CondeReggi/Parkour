@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+out/
+dist/
+release/
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Local DB (cuando se corre con DATABASE_URL apuntando al cwd)
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# TypeScript build info
+*.tsbuildinfo

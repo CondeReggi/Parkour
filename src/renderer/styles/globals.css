@@ -1,0 +1,180 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Sistema de temas:
+ *  - :root            → "Urban Light" (modo claro, limpio y deportivo).
+ *  - .dark            → "Asphalt Dark" (modo oscuro urbano, asfalto, foco).
+ *  - .dark.theme-gotham → "Gotham" (paleta zinc original, sobreescribe a .dark).
+ *
+ * Para que Tailwind aplique las utilities `dark:` también en Gotham,
+ * en runtime SIEMPRE agregamos la clase `dark` cuando el tema es oscuro
+ * en cualquiera de sus variantes; `theme-gotham` se suma encima para
+ * sobreescribir los tokens.
+ *
+ * Color de marca: naranja/ámbar (#F59E0B) en ambos modos.
+ *   HSL aproximado: 38 92% 50%
+ */
+
+@layer base {
+  :root {
+    /* === Urban Light === */
+    /* Superficies */
+    --background: 210 40% 98%;      /* #F8FAFC */
+    --foreground: 222 47% 11%;      /* #0F172A */
+
+    --card: 0 0% 100%;              /* #FFFFFF */
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    --secondary: 210 40% 96%;       /* surface-soft #F1F5F9 */
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 210 40% 96%;
+    --muted-foreground: 220 9% 46%; /* #6B7280 */
+
+    --accent: 38 92% 95%;           /* hint primary-soft para hover de items */
+    --accent-foreground: 24 95% 25%;
+
+    /* Marca */
+    --primary: 38 92% 50%;          /* #F59E0B */
+    --primary-foreground: 0 0% 100%;
+
+    /* Estados */
+    --destructive: 0 84% 60%;       /* #EF4444 */
+    --destructive-foreground: 0 0% 100%;
+    --success: 142 71% 45%;         /* #22C55E */
+    --success-foreground: 0 0% 100%;
+    --info: 217 91% 60%;            /* #3B82F6 */
+    --info-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;          /* coincide con primary intencionalmente */
+    --warning-foreground: 0 0% 100%;
+
+    /* Bordes y controles */
+    --border: 220 14% 91%;          /* #E5E7EB */
+    --input: 220 14% 91%;
+    --ring: 38 92% 50%;             /* foco usa primary */
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    /* === Asphalt Dark (default oscuro) === */
+    --background: 240 6% 6%;        /* #09090B */
+    --foreground: 0 0% 98%;         /* #FAFAFA */
+
+    --card: 240 4% 7%;              /* #111113 */
+    --card-foreground: 0 0% 98%;
+
+    --popover: 240 4% 7%;
+    --popover-foreground: 0 0% 98%;
+
+    --secondary: 240 4% 10%;        /* #18181B surface-soft */
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 240 4% 13%;            /* #1F1F23 border-soft re-usado como muted */
+    --muted-foreground: 240 5% 65%; /* #A1A1AA */
+
+    --accent: 240 4% 14%;           /* #232326 surface-hover */
+    --accent-foreground: 0 0% 98%;
+
+    /* Marca: el naranja sigue siendo el protagonista, levemente más vivo */
+    --primary: 38 92% 50%;          /* #F59E0B */
+    --primary-foreground: 240 10% 4%;
+
+    /* Estados — tonos suaves para contraste sobre fondos oscuros */
+    --destructive: 0 91% 71%;       /* #F87171 */
+    --destructive-foreground: 0 0% 100%;
+    --success: 142 69% 58%;         /* #4ADE80 */
+    --success-foreground: 240 10% 4%;
+    --info: 213 94% 68%;            /* #60A5FA */
+    --info-foreground: 240 10% 4%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 240 10% 4%;
+
+    /* Bordes y controles */
+    --border: 240 4% 16%;           /* #27272A */
+    --input: 240 4% 16%;
+    --ring: 38 92% 50%;
+  }
+
+  .dark.theme-gotham {
+    /* === Gotham (paleta zinc original, preservada) ===
+       Se aplica encima de .dark, sobreescribiendo los tokens al set
+       histórico de shadcn new-york / zinc. */
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 5.9% 10%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+    --info: 217 91% 60%;
+    --info-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 240 4.9% 83.9%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /*
+   * Mejora de contraste para selección. En light se pinta de naranja
+   * tenue; en dark queda más vibrante.
+   */
+  ::selection {
+    background-color: hsl(var(--primary) / 0.25);
+    color: hsl(var(--foreground));
+  }
+}
+
+/*
+ * Utilities reutilizables para hero gamificados / cards destacadas.
+ * No imitan a Tailwind: son helpers semánticos para que las superficies
+ * con "calor de marca" no tengan que hardcodear el gradiente.
+ */
+@layer components {
+  .brand-gradient {
+    background-image: linear-gradient(
+      135deg,
+      hsl(var(--primary) / 0.18),
+      hsl(var(--background) / 0.95)
+    );
+  }
+  .brand-gradient-strong {
+    background-image: linear-gradient(
+      135deg,
+      hsl(var(--primary) / 0.32),
+      hsl(var(--background) / 0.9)
+    );
+  }
+}

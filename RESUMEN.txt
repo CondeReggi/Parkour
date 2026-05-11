@@ -1,0 +1,1133 @@
+================================================================================
+PARKOUR APP — RESUMEN DEL ESTADO ACTUAL
+================================================================================
+
+App de escritorio (Electron + React) local-first para aprender parkour de forma
+estructurada y segura. MVP sin análisis IA: registro, evaluación, recomendación
+de rutinas/movimientos, revisión personal de videos, sistema completo de
+gamificación (XP, niveles, misiones, logros, rachas inteligentes) y skill-tree
+visual. Toda la persistencia es local en SQLite vía Prisma.
+
+Versión: 0.1.0
+Idioma de la UI: español (rioplatense).
+
+================================================================================
+1. STACK Y DECISIONES DE PROYECTO
+================================================================================
+
+Runtime y bundling
+- Electron 33 + electron-vite (HMR del renderer, rebuild del main en cambios).
+- Tres procesos con bundles separados: main, preload, renderer.
+- TypeScript estricto en todos lados (web + node configs separadas).
+
+Frontend
+- React 18 + react-router-dom 7 (HashRouter — file:// en producción).
+- TanStack Query 5 para data fetching y cache.
+- React Hook Form + Zod (resolver) para forms y validación.
+- Tailwind CSS 3 + shadcn/ui style "new-york" baseColor "zinc".
+- lucide-react para íconos.
+- Zustand instalado (no usado activamente todavía).
+- NINGUNA librería de gráficos: todos los charts son SVG/divs puros.
+- NINGUNA librería de modales (Radix Dialog NO está instalado): hay un Dialog
+  minimalista propio en components/ui/dialog.tsx.
+- NINGUNA librería de grafos: el skill-tree usa CSS grid + SVG superpuesto
+  con paths cubic-bezier calculados via getBoundingClientRect.
+
+Backend (proceso main)
+- Prisma 6 con SQLite. El archivo .db vive en app.getPath('userData')/parkour.db
+  (resuelto en src/main/db/client.ts y forzado por app.setName('parkour-app')).
+- IPC tipado: el contrato vive en src/shared/api.ts; preload lo implementa
+  invocando channels '<feature>:<method>'; main lo registra con ipcMain.handle.
+- Zod en el main valida cada payload IPC antes de tocar el repo.
+
+Aliases TS (electron.vite.config.ts)
+- @           → src/renderer
+- @shared     → src/shared
+- (sólo renderer usa @; main y preload sólo @shared)
+
+================================================================================
+2. ESTADO POR FASES
+================================================================================
+
+Fase 1-9 — base de la app:
+  ✓ Perfil de usuario + lesiones
+  ✓ Evaluación inicial (cálculo de nivel)
+  ✓ Biblioteca de movimientos (10 movements seed)
+  ✓ Rutinas (3 rutinas seed) + recomendador de rutina
+  ✓ Sesiones de entrenamiento con checklist de seguridad (semáforo)
+  ✓ Página de Progreso con stats agregadas
+  ✓ Spots (lugares de entrenamiento) con obstáculos y movimientos recomendados
+
+Fase 10 — Videos:
+  ✓ File picker nativo (dialog.showOpenDialog). El archivo NO se copia, sólo
+    se guarda el path absoluto.
+  ✓ Custom protocol 'parkour-media://video/<id>' registrado en el main.
+    El renderer reproduce con <video src="parkour-media://video/abc"> sin
+    ver nunca la ruta absoluta. Resolución via DB + net.fetch() sobre
+    file:// (Range requests gratis, seek funciona).
+  ✓ Detección de archivo faltante: existsSync en cada lectura.
+  ✓ Modal único para crear/editar/reproducir/eliminar.
+  ✓ Asociaciones opcionales a movement / spot / session.
+  ✓ Estado de revisión: pendiente / revisado / mejora visible.
+  ✓ Filtros: buscador + estado + movement.
+
+Fase 11 — Configuración:
+  ✓ Toggle dark/light persistido en AppSettings.theme (DB).
+  ✓ Export/import JSON de datos del usuario (relaciones a built-in via slug).
+  ✓ Backup binario .db + restore con app.relaunch() + exit(0).
+
+Fase Dashboard inicial — gráficos y recomendaciones:
+  ✓ Recomendador de movements (filtros por nivel/prereqs/scoring).
+  ✓ ActivityChart (barras de 8 semanas, helper puro buildWeeklyActivity).
+  ✓ MovementProgressChart (barras stacked por categoría).
+
+Fase Gamificación — XP y niveles:
+  ✓ Tabla XpEvent con unique (profileId, source, sourceRefId) para dedup.
+  ✓ 8 fuentes de XP, recompensas fijas en código (XP_REWARDS) salvo
+    quest_claimed y achievement_unlocked que son variables.
+  ✓ Función pura xpLevels.computeLevelFromXp() — curva 50·N·(N-1).
+  ✓ Backfill lazy retroactivo en la primera lectura del estado.
+  ✓ XpBreakdown con prisma.xpEvent.groupBy: cuántos XP suma cada fuente.
+  ✓ XpCard en dashboard + XpBreakdownCard en /progress.
+
+Fase Misiones (quests):
+  ✓ Tabla QuestAssignment con unique (profileId, templateSlug, startsAt).
+  ✓ 8 misiones built-in (3 diarias + 5 semanales) en código (services/quests.ts).
+  ✓ Generación automática del set actual al primer listForActive() del día.
+  ✓ Idempotencia del progreso vía retorno boolean de grantForActive.
+  ✓ Estados: pending / completed / claimed. Doble dedup (status + XpEvent unique).
+
+Fase Logros (achievements):
+  ✓ Tabla AchievementUnlock con unique (profileId, slug).
+  ✓ Catálogo en código (services/achievements.ts) con 11 logros iniciales y
+    función pura evaluate(ctx) por cada uno.
+  ✓ Evaluación idempotente disparada desde sessions/movements/videos/spots/quests
+    repos después de los grants de XP.
+  ✓ Página /achievements con grid agrupado por categoría.
+  ✓ RecentAchievementsCard en dashboard.
+
+Fase Rachas inteligentes:
+  ✓ Tabla DailyActivity (sólo persiste manual: type='active_recovery').
+  ✓ Función pura computeStreakState con tolerancia 1 día + extra si hubo
+    dolor/fatiga >= 7 reciente (justified_rest, 1-2 días de gracia).
+  ✓ StreakCard en dashboard con racha actual, mejor, estado de hoy, días
+    activos semana, recomendación tipo coach y botón "Marcar recuperación
+    activa".
+
+Fase Rediseño del Dashboard:
+  ✓ Layout completo nuevo: hero gamificado + grilla 3-col
+    (LevelProgress · Streak · DailyMission) + grilla 2-col
+    (WeeklyProgress + RecentAchievements) + grilla 2-col
+    (RecommendedNextMoves + PendingVideos) + QuickActions full-width.
+  ✓ Frase motivadora personalizada por hora del día y racha (función pura).
+  ✓ Skeletons consistentes por card.
+
+Fase Camino de aprendizaje (skill tree):
+  ✓ Ruta /learning-path en el sidebar (ícono Waypoints).
+  ✓ Función pura computeLearningStatuses (locked / available / practicing /
+    mastered) reusada también desde la biblioteca de movimientos.
+  ✓ Nodos en grid CSS por dificultad dentro de cada categoría.
+  ✓ SVG superpuesto con paths cubic-bezier para conexiones intra-categoría.
+    Línea sólida si el prereq está dominado, punteada si pendiente.
+  ✓ Conexiones inter-categoría se anuncian como chip "Viene de:" en lugar
+    de línea (mantiene el layout limpio).
+  ✓ Detail dialog corto con acciones rápidas (marcar practicing/mastered).
+
+Fase Coach guiado en Entrenar hoy:
+  ✓ State machine con 4 fases: checkin → recommendation → guided → feedback.
+  ✓ StepRail visual indicando en qué paso estás.
+  ✓ Check-in: energía, dolor, fatiga, sueño, confianza, tiempo, objetivo del
+    día (override del mainGoal del perfil), lugar (home/spot/other + spot
+    select). 3 campos nuevos en WorkoutSession: energyBefore, goalOfDay, place.
+  ✓ Recomendación: pickGuidedRoutine() pura cruza semáforo + tiempo + goal +
+    fatiga; warnings explícitos si pain>=7 o fatigue>=8; bloques de la rutina
+    expandidos (Calentamiento / Técnica principal / Bloque complementario /
+    Movilidad / Vuelta a la calma) con "Por qué te la recomendamos".
+  ✓ Sesión guiada: barra de progreso N/M, "Ahora" highlight del bloque
+    actual, checkboxes locales (no persisten) para tachar bloques hechos.
+  ✓ Feedback: qué salió bien / qué salió mal (concatenado en personalNotes),
+    pain/fatigue post, movements practicados con pre-marca desde la rutina,
+    asociar videos previos sin sesión + subir video nuevo desde el mismo flow.
+  ✓ Recupera la sesión activa si el usuario cierra la app a la mitad.
+
+Fase Biblioteca de movimientos mejorada:
+  ✓ 2 campos nuevos en Movement: technicalGoal y safetyChecklist
+    (con default '[]' para compatibilidad; el seed los rellena).
+  ✓ Detail DTO extendido con usedInRoutines y nextMovements (computados
+    en getBySlug, vacíos en getAll).
+  ✓ Filtros nuevos: dificultad (1-5), riesgo (low/medium/high según count
+    de risks), estado unificado (Disponible / Bloqueado / En práctica /
+    Dominado) cruzando computeLearningStatuses.
+  ✓ Cards rediseñadas: barras visuales de dificultad, borde por estado,
+    chips de prereqs en verde/amber según si están dominados, indicador de
+    riesgo, acciones rápidas inline.
+  ✓ Detalle ampliado: Card "Objetivo técnico" destacada, "Checklist de
+    práctica segura", lista de prereqs con check/lock por item, sección
+    "Cuando domines este" (next movements), sección "Aparece en estas
+    rutinas", sección "Videos asociados".
+
+================================================================================
+3. ESTRUCTURA DE CARPETAS
+================================================================================
+
+parkour-app/
+├─ prisma/
+│  ├─ schema.prisma          ← esquema completo (ver §4)
+│  ├─ seed.ts                ← 10 movements + 3 routines built-in (incluye
+│  │                            technicalGoal y safetyChecklist por movement)
+│  └─ migrations/            ← history: init, add_xp_events, add_quests,
+│                              add_achievements, add_daily_activity,
+│                              add_session_checkin_fields,
+│                              add_movement_technical_fields
+├─ scripts/with-db-env.mjs   ← inyecta DATABASE_URL = file:userData/parkour.db
+├─ src/
+│  ├─ main/
+│  │  ├─ index.ts            ← bootstrap, ventana, registerHandlers
+│  │  ├─ db/client.ts        ← singleton PrismaClient
+│  │  ├─ ipc/
+│  │  │  ├─ registerHandlers.ts        ← punto único
+│  │  │  ├─ assessment.ipc.ts
+│  │  │  ├─ movements.ipc.ts
+│  │  │  ├─ profile.ipc.ts
+│  │  │  ├─ routines.ipc.ts
+│  │  │  ├─ sessions.ipc.ts
+│  │  │  ├─ settings.ipc.ts            ← theme + export/import + backup/restore
+│  │  │  ├─ spots.ipc.ts
+│  │  │  ├─ videos.ipc.ts              ← incluye videos:pickFile
+│  │  │  ├─ gamification.ipc.ts        ← XP state + breakdown + events
+│  │  │  ├─ quest.ipc.ts               ← list + claim
+│  │  │  ├─ achievement.ipc.ts         ← list + recent
+│  │  │  └─ streak.ipc.ts              ← getState + markActiveRecovery
+│  │  ├─ protocol/parkourMedia.ts      ← scheme parkour-media:// para videos
+│  │  ├─ repositories/
+│  │  │  ├─ assessment.repository.ts
+│  │  │  ├─ injury.repository.ts
+│  │  │  ├─ movement.repository.ts     ← getBySlug devuelve usedInRoutines
+│  │  │  │                              + nextMovements computed
+│  │  │  ├─ profile.repository.ts
+│  │  │  ├─ routine.repository.ts
+│  │  │  ├─ session.repository.ts      ← finalize() dispara XP + quests +
+│  │  │  │                              achievements + streak invalidations
+│  │  │  ├─ settings.repository.ts
+│  │  │  ├─ spot.repository.ts
+│  │  │  ├─ video.repository.ts
+│  │  │  ├─ xpEvent.repository.ts      ← grantForActive booleano + breakdown
+│  │  │  ├─ quest.repository.ts        ← ensureCurrent + progress + claim
+│  │  │  ├─ achievement.repository.ts  ← evaluateAndUnlockForActive
+│  │  │  └─ streak.repository.ts       ← getStateForActive + markRecovery
+│  │  └─ services/                     ← lógica pura testeable
+│  │     ├─ dataExport.ts              ← arma ExportPayload con todo
+│  │     ├─ dataImport.ts              ← valida Zod + tx Prisma
+│  │     ├─ dbBackup.ts                ← copyFile binaria
+│  │     ├─ levelCalculator.ts         ← evaluación → nivel
+│  │     ├─ movementRecommender.ts     ← recommendMovements()
+│  │     ├─ routineRecommender.ts      ← recommendRoutine()
+│  │     ├─ sessionStats.ts            ← computeSessionStats (streak simple)
+│  │     ├─ xpLevels.ts                ← computeLevelFromXp (curva 50·N·(N-1))
+│  │     ├─ quests.ts                  ← QUEST_TEMPLATES + periodFor
+│  │     ├─ achievements.ts            ← ACHIEVEMENT_CATALOG + evaluators
+│  │     └─ streaks.ts                 ← computeStreakState inteligente
+│  ├─ preload/index.ts                 ← contextBridge: parkourApi
+│  ├─ shared/
+│  │  ├─ api.ts                        ← contrato IPC completo
+│  │  ├─ schemas/                      ← Zod schemas + tipos derivados
+│  │  │  ├─ assessment.schemas.ts
+│  │  │  ├─ injury.schemas.ts
+│  │  │  ├─ movement.schemas.ts
+│  │  │  ├─ profile.schemas.ts
+│  │  │  ├─ session.schemas.ts         ← +energyBefore, goalOfDay, place
+│  │  │  ├─ settings.schemas.ts
+│  │  │  ├─ spot.schemas.ts
+│  │  │  ├─ video.schemas.ts
+│  │  │  ├─ gamification.schemas.ts
+│  │  │  ├─ quest.schemas.ts
+│  │  │  ├─ achievement.schemas.ts
+│  │  │  └─ streak.schemas.ts
+│  │  └─ types/                        ← DTOs JSON-friendly
+│  │     ├─ assessment.ts
+│  │     ├─ movement.ts                ← +technicalGoal, safetyChecklist,
+│  │     │                              usedInRoutines, nextMovements
+│  │     ├─ movementRecommendation.ts
+│  │     ├─ portability.ts             ← shape completo del JSON de export
+│  │     ├─ profile.ts
+│  │     ├─ routine.ts
+│  │     ├─ session.ts                 ← +energyBefore, goalOfDay, place
+│  │     ├─ settings.ts
+│  │     ├─ spot.ts
+│  │     ├─ stats.ts
+│  │     ├─ video.ts
+│  │     ├─ gamification.ts            ← XpSource, XP_REWARDS, breakdown
+│  │     ├─ quest.ts                   ← QuestDto, QuestsListDto, ClaimResult
+│  │     ├─ achievement.ts             ← AchievementDto, AchievementsListDto
+│  │     └─ streak.ts                  ← StreakStateDto, DayType, Recommendation
+│  └─ renderer/                        ← React app
+│     ├─ index.html                    ← class="dark" inicial (anti-flash)
+│     ├─ main.tsx                      ← ReactDOM.createRoot
+│     ├─ App.tsx                       ← QueryProvider > ThemeProvider > Router
+│     ├─ styles/globals.css            ← variables HSL :root y .dark
+│     ├─ lib/utils.ts                  ← cn() (clsx + tailwind-merge)
+│     ├─ types/global.d.ts             ← declara window.parkourApi
+│     ├─ components/
+│     │  ├─ PageHeader.tsx
+│     │  ├─ PhaseTodoCard.tsx          ← obsoleto, sin uso
+│     │  └─ ui/                        ← shadcn primitives + Dialog propio
+│     ├─ app/
+│     │  ├─ nav.ts                     ← lista única de items del sidebar
+│     │  ├─ router.tsx                 ← createHashRouter
+│     │  ├─ layout/Sidebar.tsx
+│     │  └─ providers/
+│     │     ├─ QueryProvider.tsx
+│     │     └─ ThemeProvider.tsx
+│     └─ features/
+│        ├─ achievements/              ← AchievementsPage + RecentAchievements
+│        ├─ assessment/
+│        ├─ dashboard/
+│        │  ├─ DashboardPage.tsx       ← rediseñada con 4 grillas
+│        │  ├─ lib/heroQuote.ts        ← frase motivadora pura
+│        │  └─ components/
+│        │     ├─ DashboardCardSkeleton.tsx
+│        │     ├─ DashboardHeroCard.tsx
+│        │     ├─ LevelProgressCard.tsx
+│        │     ├─ DailyMissionCard.tsx (con modal interno)
+│        │     ├─ WeeklyProgressCard.tsx
+│        │     ├─ PendingVideosCard.tsx
+│        │     ├─ QuickActionsCard.tsx
+│        │     ├─ RecommendedNextMovesCard.tsx
+│        │     ├─ HeroCard.tsx           (huérfano, reemplazado)
+│        │     ├─ QuickLinksCard.tsx     (huérfano)
+│        │     ├─ PracticingMovementsCard.tsx (huérfano)
+│        │     ├─ RecentSessionsCard.tsx (huérfano)
+│        │     ├─ RecommendedMovementsCard.tsx (huérfano)
+│        │     ├─ ActivityChart.tsx + lib/activityBuckets.ts (huérfanos)
+│        │     └─ MovementProgressChart.tsx (huérfano)
+│        ├─ gamification/              ← XpCard + XpBreakdownCard
+│        ├─ learningPath/              ← skill tree
+│        │  ├─ LearningPathPage.tsx
+│        │  ├─ lib/learningPathStatus.ts (función pura compartida)
+│        │  └─ components/
+│        │     ├─ MovementNode.tsx
+│        │     ├─ CategoryBranch.tsx (SVG + grid)
+│        │     ├─ MovementDetailDialog.tsx
+│        │     └─ learningPathEnums.ts
+│        ├─ movements/                 ← lista + detalle rediseñados
+│        ├─ profile/
+│        ├─ progress/                  ← incluye XpCard + XpBreakdown
+│        ├─ quests/                    ← QuestsCard (reusada en modal)
+│        ├─ routines/
+│        ├─ sessions/                  ← SessionCard + StatsGrid
+│        ├─ settings/
+│        ├─ spots/
+│        ├─ streak/                    ← StreakCard + hooks
+│        ├─ training/                  ← coach guiado con state machine
+│        │  ├─ TrainingPage.tsx        ← 4 fases
+│        │  ├─ lib/
+│        │  │  ├─ safety.ts            ← semáforo (preexistente)
+│        │  │  └─ pickGuidedRoutine.ts ← función pura nueva
+│        │  └─ components/
+│        │     ├─ CheckInStep.tsx
+│        │     ├─ RecommendationStep.tsx
+│        │     ├─ GuidedSessionView.tsx
+│        │     ├─ FeedbackStep.tsx
+│        │     ├─ SafetyChecklistForm.tsx (reusado)
+│        │     └─ TrafficLightCard.tsx (reusado)
+│        └─ videos/
+
+Cada feature sigue la misma forma:
+  feature/
+    XxxPage.tsx                ← ruta /xxx
+    XxxDetailPage.tsx (opt)    ← ruta /xxx/:slug
+    hooks/useXxx.ts            ← queryKeys + queries
+    hooks/useXxxMutations.ts   ← mutaciones con invalidaciones cruzadas
+    components/                ← Cards, Forms, Filters
+    lib/                       ← funciones puras del feature
+
+Las páginas NUNCA llaman window.parkourApi directo: siempre vía hook.
+
+================================================================================
+4. ESQUEMA DE DATOS (PRISMA)
+================================================================================
+
+Convenciones:
+- IDs cuid() en todas las entidades. AppSettings es singleton id=1.
+- "Enums" se modelan como String con valores documentados en comentarios.
+- Arrays se serializan como JSON dentro de String (limitación SQLite).
+- createdAt / updatedAt en entidades mutables.
+
+Tablas principales y cascadas:
+
+  UserProfile
+    ├─ Injury (cascade)
+    ├─ InitialAssessment (cascade)
+    ├─ MovementProgress (cascade)
+    ├─ WorkoutSession (cascade)
+    │   └─ WorkoutMovement (cascade)
+    ├─ XpEvent (cascade)
+    ├─ QuestAssignment (cascade)
+    ├─ AchievementUnlock (cascade)
+    └─ DailyActivity (cascade)
+
+  Movement (built-in)
+    ├─ technicalGoal: String?              ← objetivo técnico corto
+    ├─ safetyChecklist: String @default("[]") ← JSON array<string>
+    └─ relaciones: MovementProgress, WorkoutMovement, RoutineExercise,
+                   VideoEntry, SpotObstacleMovement
+
+  Routine
+    └─ RoutineBlock
+       └─ RoutineExercise (FK opt a Movement, SetNull en cascada)
+
+  WorkoutSession (campos nuevos del coach guiado)
+    ├─ energyBefore: Int?       ← 0-10
+    ├─ goalOfDay: String?       ← override del mainGoal para este día
+    ├─ place: String?           ← 'home' | 'spot' | 'other'
+    ├─ painBefore/painAfter
+    ├─ fatigueBefore/fatigueAfter
+    └─ safetyTrafficLight: 'green' | 'yellow' | 'red'
+
+  Spot ── SpotObstacle ── SpotObstacleMovement (M:N a Movement)
+
+  VideoEntry (FKs opcionales a Movement/Spot/Session, todas SetNull)
+
+  AppSettings (singleton id=1): theme, activeProfileId, lastBackupAt
+
+  BackupLog: type, filePath, succeeded, message, createdAt
+
+Modelos de gamificación:
+
+  XpEvent
+    @@unique([profileId, source, sourceRefId])    ← dedup central
+    @@index([profileId, createdAt])
+    source: 'session_finalized' | 'movement_practicing' | 'movement_mastered' |
+            'video_uploaded' | 'video_reviewed' | 'spot_registered' |
+            'quest_claimed' | 'achievement_unlocked'
+
+  QuestAssignment
+    @@unique([profileId, templateSlug, startsAt]) ← una asignación por período
+    @@index([profileId, type, expiresAt])
+    @@index([profileId, status])
+    type: 'daily' | 'weekly'
+    status: 'pending' | 'completed' | 'claimed'
+    metric: 'sessions_finalized' | 'movements_practiced' |
+            'movements_mastered' | 'videos_uploaded' | 'videos_reviewed' |
+            'spots_registered' | 'sessions_low_pain' |
+            'recommended_routine_completed'
+
+  AchievementUnlock
+    @@unique([profileId, slug])
+    @@index([profileId, unlockedAt])
+    xpAwarded: Int (snapshot, por si el catálogo cambia)
+
+  DailyActivity
+    @@unique([profileId, date, type])
+    @@index([profileId, date])
+    type: 'active_recovery' (sólo persiste manual; training y rest se derivan)
+
+================================================================================
+5. CONTRATO IPC (src/shared/api.ts)
+================================================================================
+
+window.parkourApi expone:
+
+  ping() → 'pong'
+
+  movements:     getAll · getBySlug · setProgress · recommendForActive
+  profile:       getActive · create · update · addInjury · updateInjury ·
+                 deleteInjury
+  assessment:    create · listForActive · latest
+  routines:      getAll · getBySlug · recommendForActive
+  sessions:      start · getActive · finalize · cancel · listForActive ·
+                 getById · getStats
+  spots:         getAll · getById · create · update · delete ·
+                 addObstacle · updateObstacle · deleteObstacle ·
+                 setObstacleMovements
+  videos:        getAll · getById · create · update · delete · pickFile
+  settings:      get · setTheme · exportJson · importJson · backupDb · restoreDb
+  gamification:  getState · listEvents · getBreakdown
+  quests:        listForActive · claim
+  achievements:  listForActive · recentForActive
+  streak:        getState · markActiveRecovery
+
+Channel naming: '<feature>:<method>'.
+Cada handler valida con Zod ANTES de tocar el repo.
+
+================================================================================
+6. PROTOCOLO parkour-media://
+================================================================================
+
+Registrado en src/main/protocol/parkourMedia.ts.
+
+- registerSchemesAsPrivileged() ANTES de app.whenReady() con privileges
+  { standard, secure, supportFetchAPI, stream } para que soporte streaming.
+- protocol.handle() resuelve 'parkour-media://video/<id>':
+    1. parsea el id, 2. videoRepository.getFilePath(id) (previene path
+    traversal: sólo sirve archivos con entrada en DB), 3. retorna
+    net.fetch(pathToFileURL(filePath)) → Range requests automáticos.
+- El renderer construye URLs con videoMediaUrl(id) — nunca ve el path.
+
+================================================================================
+7. EXPORT / IMPORT JSON
+================================================================================
+
+Shape: src/shared/types/portability.ts (interface ExportPayload, version = 1).
+Sólo datos del usuario. Movements y Routines built-in NO se incluyen
+(regenerables por seed). Relaciones a built-in se exportan por slug.
+
+Arrays serializados (todos con .default([]) en el schema Zod de import para
+tolerar exports anteriores a esa feature):
+
+  profiles, injuries, assessments, movementProgress, customRoutines,
+  routineBlocks, routineExercises, spots, spotObstacles,
+  spotObstacleMovements, workoutSessions (incluye nuevos energyBefore,
+  goalOfDay, place), workoutMovements, videoEntries, xpEvents,
+  questAssignments, achievementUnlocks, dailyActivities
+
+En el import (services/dataImport.ts):
+  1. zod valida toda la estructura.
+  2. Mapa slug→id de movements y built-in routines.
+  3. prisma.$transaction borra user-data en orden de FKs y reinserta
+     traduciendo slugs. Si un slug obligatorio no resuelve → registro
+     descartado. Opcional → null.
+  4. Si activeProfileId apunta a un profile que no vino, se setea a null.
+  5. Log a BackupLog.
+
+================================================================================
+8. BACKUP / RESTORE .db
+================================================================================
+
+Backup: copyFile binaria desde userData/parkour.db. SQLite tolera lecturas
+        concurrentes. Actualiza AppSettings.lastBackupAt + BackupLog.
+
+Restore: prisma.$disconnect() → copyFile source → userData/parkour.db →
+         app.relaunch() + app.exit(0) con setTimeout 200ms para que la
+         respuesta IPC alcance al renderer.
+
+================================================================================
+9. RECOMENDADORES
+================================================================================
+
+Rutina (services/routineRecommender.ts):
+  Filtros: nivel ≤ user+1; descarta moderate si fatiga alta; descarta si
+  alguna lesión activa coincide con avoidsInjuries.
+  Score: +3 goal coincide, +2 nivel exacto, +1 'any', +2 si fatiga alta y
+  rutina 'low'.
+
+Movement (services/movementRecommender.ts):
+  Filtros: descarta si ya practicing/mastered; descarta si requiredLevel >
+  user+1; descarta si algún prereq NO está mastered.
+  Score: +3 categoría coincide con mainGoal, +2 nivel exacto, +1 nivel-1,
+  +1 difficulty ≤ 2, +1 sin prereqs.
+
+Coach guiado (features/training/lib/pickGuidedRoutine.ts, frontend):
+  Combina semáforo + goalOfDay (override) + tiempo disponible + fatiga +
+  lesiones. +3 si entra en el tiempo, +3 goal match, +2 nivel exacto, +2
+  liviana cuando wantsSoft. Warnings explícitos si pain>=7 / fatigue>=8 /
+  semáforo rojo.
+
+================================================================================
+10. SISTEMA DE XP Y NIVELES
+================================================================================
+
+Tabla: XpEvent (ver §4). Cada acción se traduce a un XpEvent con un source
+y un sourceRefId; el unique garantiza que esa acción específica nunca
+otorgue XP dos veces.
+
+Recompensas (XP_REWARDS):
+  session_finalized:        50
+  movement_practicing:      10
+  movement_mastered:        30
+  video_uploaded:            5
+  video_reviewed:           10
+  spot_registered:          15
+  quest_claimed:             0  (variable: amount viene de la quest)
+  achievement_unlocked:      0  (variable: amount viene del catálogo)
+
+Curva de niveles (services/xpLevels.ts):
+  threshold(N) = 50 * N * (N - 1)
+    N1=0, N2=100, N3=300, N4=600, N5=1000, N6=1500, ...
+  Incremento por nivel: +100, +200, +300, ... (regular y predecible).
+
+grantForActive(source, sourceRefId): Promise<boolean>
+  Devuelve TRUE si el XpEvent fue nuevo. Los repos usan ese boolean para
+  decidir si propagan progreso a misiones. Idempotencia garantizada por
+  unique.
+
+grantForActiveWithAmount(source, sourceRefId, amount): variante para
+  fuentes con recompensa variable (quest_claimed, achievement_unlocked).
+
+Backfill lazy: la primera vez que se pide el estado, si count==0, recorre
+sessions/progress/videos/spots y los traduce a XpEvents. Idempotente: si se
+ejecuta dos veces, grantOnce rechaza duplicados.
+
+UI:
+  - LevelProgressCard (dashboard): nivel grande, XP totales, barra al
+    próximo nivel, link a /progress.
+  - XpBreakdownCard (/progress): tarifa por fuente + cuánto llevás de
+    cada una. quest_claimed y achievement_unlocked se muestran como
+    "Recompensa variable".
+
+================================================================================
+11. SISTEMA DE MISIONES (QUESTS)
+================================================================================
+
+Catálogo en código (services/quests.ts) — 8 misiones built-in:
+
+  Diarias:
+    daily_finalize_session    target 1, +30 XP
+    daily_practice_movement   target 1, +15 XP
+    daily_master_movement     target 1, +50 XP
+
+  Semanales:
+    weekly_upload_videos       target 2, +25 XP
+    weekly_review_videos       target 2, +30 XP
+    weekly_register_spot       target 1, +40 XP
+    weekly_train_without_pain  target 3, +50 XP (sessions con painAfter ≤ 3)
+    weekly_recommended_routine target 1, +60 XP (rutina recomendada del momento)
+
+Períodos (hora local):
+  daily : 00:00:00.000 → 23:59:59.999 del mismo día
+  weekly: lunes 00:00 → domingo 23:59:59.999
+
+ensureCurrentForProfile (idempotente):
+  - Pre-check de slugs ya asignados al período actual.
+  - createMany del resto (SQLite no soporta skipDuplicates → filtramos
+    upfront para evitar P2002 ruidoso).
+
+progressForActive(metric):
+  - Levanta todas las QuestAssignment pending del perfil con esa metric
+    dentro de su período y bumpea progress. Si llega al target, status
+    pasa a 'completed' + completedAt.
+  - Se llama desde los repos SÓLO cuando grantForActive devolvió true,
+    así una mutación reintentada no doble-cuenta.
+
+claimForActive(id):
+  - Valida status=completed, dueño correcto.
+  - status='claimed', claimedAt=now.
+  - grantForActiveWithAmount('quest_claimed', questId, xpReward).
+  - Dispara achievementRepository.evaluateAndUnlockForActive().
+
+UI:
+  - DailyMissionCard (dashboard): picks la misión "más relevante" con
+    scoring (completed > pending de mayor progreso > mayor recompensa).
+    Botón "Reclamar XP" inline. Link "Ver N más" abre Dialog con
+    QuestsCard completa.
+
+================================================================================
+12. SISTEMA DE LOGROS (ACHIEVEMENTS)
+================================================================================
+
+Catálogo en código (services/achievements.ts) — 11 logros iniciales:
+
+  Sesiones:
+    first_session       1 sesión          +25 XP
+    five_sessions       5 sesiones        +50 XP
+    ten_sessions        10 sesiones       +100 XP
+
+  Movimientos:
+    first_mastered      1 mastered        +30 XP
+    five_mastered       5 mastered        +100 XP
+
+  Constancia:
+    three_day_streak    streak >= 3       +75 XP
+    first_active_week   3 sesiones en una semana ISO  +80 XP
+
+  Videos:
+    first_video         1 video creado    +15 XP
+    five_reviews        5 reviewStatus != 'pending'   +50 XP
+
+  Spots:
+    first_spot          1 spot            +20 XP
+
+  Wellness:
+    low_pain_streak     5 sesiones con painAfter ≤ 3  +60 XP
+
+evaluateAndUnlockForActive():
+  1. Construye AchievementContext desde Prisma (5 queries paralelas).
+  2. Itera el catálogo y evalúa cada uno.
+  3. Pre-chequeo de ya-desbloqueados para filtrar.
+  4. createMany del subset nuevo.
+  5. Para los con xpReward > 0:
+     grantForActiveWithAmount('achievement_unlocked', slug, xpReward).
+  6. Devuelve los slugs recién desbloqueados.
+
+Llamada desde sessions/movements/videos/spots/quests repos después de los
+grants. NO se llama desde dentro de grantForActive — eso evita recursión
+(achievement_unlocked grants no disparan más evaluaciones).
+
+UI:
+  - AchievementsPage (/achievements): grid por categoría con orden fijo,
+    desbloqueados primero ordenados por unlockedAt desc, bloqueados después.
+    Badge "N / total" global.
+  - RecentAchievementsCard (dashboard): últimos 3 desbloqueados con link
+    a la página completa.
+
+================================================================================
+13. SISTEMA DE RACHAS INTELIGENTES
+================================================================================
+
+Función pura: services/streaks.ts → computeStreakState(sessions, recoveries).
+
+Clasificación por día (classifyDay):
+  - Sesión finalizada en ese día        → 'training'
+  - DailyActivity active_recovery       → 'active_recovery'
+  - Ninguna actividad, pero última      → 'justified_rest'
+    sesión previa tuvo painAfter >= 7
+    o fatigueAfter >= 7 y el gap es
+    1-2 días
+  - Else                                → 'rest'
+
+Racha actual:
+  - Si hoy es activo (training/recovery), arranca contando desde hoy.
+  - Si hoy no hay nada y ayer sí fue activo, arranca desde ayer
+    (tolerancia 1 día).
+  - Else → 0.
+  - Retrocede mientras el día sea training/recovery/justified_rest.
+
+Mejor racha histórica: corre running counter desde el primer día con
+actividad; reset en cada 'rest' puro.
+
+Días activos esta semana (lunes-domingo): cuenta con training o recovery.
+
+Recomendación (pickRecommendation) tipo coach, en rioplatense:
+  - Nunca entrenó            → invita a empezar
+  - Hoy ya entrenó           → cerrá bien, cuidá la recuperación
+  - Hoy hizo recovery        → la racha sigue viva
+  - Hoy es justified_rest    → sugiere recuperación activa (suggest=true)
+  - Última sesión con pain/  → sugiere recuperación activa (suggest=true)
+    fatiga >= 7
+  - 3+ días seguidos de      → sugiere recuperación activa
+    training puro
+  - Idle con racha viva      → "no la dejes pasar"
+  - Racha rota               → "una sesión cortita y empezás racha nueva"
+
+markActiveRecovery: upsert idempotente por (profileId, date, type='active_recovery').
+Dispara achievementRepository.evaluateAndUnlockForActive() después.
+
+UI:
+  - StreakCard (dashboard): racha actual + mejor + estado de hoy con ícono +
+    alert con recomendación + botón "Marcar recuperación activa" cuando
+    corresponde.
+
+================================================================================
+14. CAMINO DE APRENDIZAJE (SKILL TREE)
+================================================================================
+
+Ruta: /learning-path · ícono Waypoints en el sidebar.
+
+Función pura compartida: features/learningPath/lib/learningPathStatus.ts
+  computeLearningStatuses(movements, userLevel) → Map<slug, LearningInfo>
+  LearningInfo: { status, lockReason?, unmetPrereqSlugs[] }
+  status: 'locked' | 'available' | 'practicing' | 'mastered'
+  lockReason: 'level' | 'prereq' (cuando status === 'locked')
+
+  Reglas:
+    - userProgress.status='mastered'  → 'mastered'
+    - userProgress.status='practicing' → 'practicing'
+    - requiredLevel > userLevel + 1   → 'locked' (lockReason='level')
+    - prereqs no todos en mastered    → 'locked' (lockReason='prereq')
+    - else                             → 'available'
+
+  Esta función la consumen también la biblioteca de movimientos (filtros y
+  cards) — única fuente de verdad.
+
+Layout:
+  - Sección por categoría (CATEGORY_ORDER fijo).
+  - Grid CSS con columnas = niveles de dificultad presentes en la categoría
+    (1..5). Cada celda contiene los movements de esa dificultad.
+  - SVG superpuesto con paths cubic-bezier desde el centro derecho del
+    prereq al centro izquierdo del dependiente. Sólo intra-categoría: los
+    inter-categoría se anuncian como chip "Viene de: X".
+  - Línea sólida stroke-primary/70 si el prereq está mastered, punteada
+    stroke-muted-foreground/30 (dasharray 4 4) si no.
+  - useLayoutEffect + getBoundingClientRect para medir, listener de
+    window.resize re-calcula con un tick state.
+
+Detail dialog corto al clickear un nodo: badges de estado/categoría/dif,
+acciones rápidas (marcar practicing/mastered según corresponda) + link a
+/movements/:slug.
+
+================================================================================
+15. COACH GUIADO EN "ENTRENAR HOY"
+================================================================================
+
+Ruta: /training. State machine con 4 fases.
+
+Fase 1 — checkin (CheckInStep):
+  - Sliders 0-10: energía, dolor, fatiga, sueño, confianza.
+  - Tiempo disponible (select de presets: 20/30/45/60/75/90/120 min).
+  - Objetivo del día (override del mainGoal del perfil; o "Lo del perfil").
+  - Lugar: casa / spot / otro. Si 'spot', aparece select de spots.
+  - Reusa SafetyChecklistForm para piso y entorno.
+
+Fase 2 — recommendation (RecommendationStep):
+  - TrafficLightCard arriba.
+  - Warnings explícitos como Alert destructive si pain>=7 / fatigue>=8 /
+    semáforo rojo (en rojo: no recomienda nada).
+  - pickGuidedRoutine() pura combina filtros + scoring.
+  - Card de la rutina con badge de minutos + objetivo + lista de bloques en
+    orden canónico (Calentamiento / Técnica principal / Bloque
+    complementario / Movilidad / Vuelta a la calma).
+  - "Por qué te la recomendamos" con bullets.
+  - Botón "Empezar entrenamiento" → useStartSession con todos los campos
+    nuevos (energyBefore, goalOfDay, place, spotId).
+
+Fase 3 — guided (GuidedSessionView):
+  - Header: cronómetro vivo + semáforo + nombre de rutina.
+  - Barra de progreso N/M bloques + porcentaje.
+  - Card "Ahora" con highlight del bloque actual (primer no marcado).
+  - Lista de bloques como checkboxes locales (no persisten — sólo guían).
+  - Cancelar (confirm) → cancelSession.
+  - "Terminé, cargar feedback" → fase feedback (todavía no finaliza).
+
+Fase 4 — feedback (FeedbackStep):
+  - "Qué salió bien" / "Qué salió mal" (textareas, se concatenan en
+    personalNotes con prefijos).
+  - Sliders dolor post / fatiga post.
+  - Movimientos practicados (pre-marcados con los del routine).
+  - Sección "Video de la sesión":
+    * Botón "Subir nuevo" → videos.pickFile + VideoFormDialog.
+    * Lista de videos previos sin sessionId con checkbox para asociar.
+  - Botón "Finalizar entrenamiento" → useFinalizeSession.
+
+Recuperación si la app se cierra a la mitad:
+  - useEffect detecta activeSession y salta a 'guided' automáticamente.
+  - Al finalizar / cancelar / desaparecer la activeSession, vuelve a
+    'checkin' con form en blanco.
+
+StepRail visual arriba con los 4 chips (cómo estás · recomendación ·
+en curso · feedback), el actual en bg-primary/15.
+
+Campos persistidos nuevos en WorkoutSession: energyBefore, goalOfDay, place.
+
+================================================================================
+16. BIBLIOTECA DE MOVIMIENTOS
+================================================================================
+
+Schema (campos nuevos):
+  - technicalGoal: String?  ← frase corta tipo "para qué sirve".
+  - safetyChecklist: String @default("[]")  ← JSON array<string>.
+
+Seed: los 10 movements tienen valores poblados.
+
+DTO de detalle (sólo getBySlug los rellena; getAll los deja vacíos):
+  - usedInRoutines: { id, slug, name }[]  ← rutinas que lo incluyen.
+  - nextMovements: { slug, name, difficulty }[]  ← movements que se
+    desbloquean al dominar este (lo declaran como prereq).
+
+Repo (getBySlug):
+  - include de routineExercises → block → routine para resolver
+    usedInRoutines.
+  - findMany con contains '"<slug>"' en prerequisites + filtro de control
+    en código para los nextMovements.
+
+Filtros (MovementFilters):
+  - Búsqueda (nombre, tag, descripción)
+  - Categoría · Nivel · Dificultad · Riesgo · Estado de aprendizaje
+    (Disponible / En práctica / Dominado / Bloqueado, vía
+    computeLearningStatuses).
+
+Card rediseñada (MovementCard):
+  - Borde por estado (mastered/practicing/available/locked).
+  - Barras visuales de dificultad (5 barritas con fill primary).
+  - Indicador de riesgo coloreado (verde/amber/rojo por bucket).
+  - Chips de prereqs con borde verde si dominado, amber si pendiente.
+  - Acciones rápidas inline ("Empezar a practicar" / "Marcar dominado")
+    con e.stopPropagation() para no navegar.
+
+Detalle (MovementDetailPage):
+  - Header con eyebrow de categoría, status badge, dificultad visual,
+    indicador de riesgos. Acciones rápidas a la derecha.
+  - Card "Objetivo técnico" destacada (bg-primary/5 + border-primary/30).
+  - Alert contextual si está bloqueado (con motivo + lista de prereqs
+    faltantes con sus nombres legibles).
+  - Riesgos (border-destructive/30) · Checklist de práctica segura
+    (border-emerald-500/30).
+  - Grilla 2-col: Señales de buena técnica · Errores comunes.
+  - Grilla 2-col: Prereqs (con check/lock por item) · Drills preparatorios.
+  - Músculos · Tags.
+  - "Cuando domines este" (nextMovements) con links al detalle.
+  - "Aparece en estas rutinas" (usedInRoutines) con links.
+  - "Videos asociados" filtrando useVideos por movement.id.
+  - MovementProgressForm al final (preexistente, para editar estado +
+    notas con select completo).
+
+================================================================================
+17. DASHBOARD REDISEÑADO
+================================================================================
+
+Layout (top → bottom):
+
+  1. DashboardHeroCard (full)
+     - Gradient sutil from-primary/10.
+     - Saludo según hora ("Buen día"/"Buenas tardes"/"Buenas noches" +
+       primer nombre).
+     - Frase motivadora personalizada (buildHeroQuote según racha + XP +
+       sesión activa).
+     - Número de nivel grande a la derecha.
+     - CTA "Entrenar hoy" o "Continuar sesión" según useActiveSession.
+
+  2. Grilla 3-col (md:2, lg:3): LevelProgress · Streak · DailyMission
+     - LevelProgressCard: trofeo + nivel + XP totales + barra + faltan X.
+       Link a /progress.
+     - StreakCard: racha actual + mejor + estado de hoy + recomendación +
+       botón de recuperación activa cuando corresponde.
+     - DailyMissionCard: misión principal con scoring + barra de progreso
+       + botón "Reclamar XP". Modal interno con QuestsCard completa.
+
+  3. Grilla 2-col: WeeklyProgress + RecentAchievements
+     - WeeklyProgressCard: dots L→D (lleno si training, anillo si hoy
+       sin actividad, vacío si futuro) + contadores Sesiones / Recuperaciones.
+     - RecentAchievementsCard: últimos 3 desbloqueados, link a /achievements.
+
+  4. Grilla 2-col: RecommendedNextMoves + PendingVideos
+     - RecommendedNextMovesCard: 4 movements del recomendador, dificultad
+       como badge cuadrado.
+     - PendingVideosCard: videos con reviewStatus='pending', empty states
+       diferenciados (sin videos / todos revisados).
+
+  5. QuickActionsCard (full): 5 botones (Entrenar / Subir video / Ver
+     movimientos / Registrar spot / Ver progreso).
+
+Frase motivadora (lib/heroQuote.ts):
+  - Sesión activa  → "Tenés una sesión abierta. Retomala…"
+  - Racha ≥ 7      → "Llevás N días al hilo. Estás en zona…"
+  - Racha 3-6      → "N días seguidos. La constancia es la clave…"
+  - Racha 1        → "Un día arriba. Mañana es para sumar otro."
+  - 0 XP           → "Hoy es buen día para arrancar…"
+  - Else           → "Volvamos a movernos…"
+
+Skeletons: DashboardCardSkeleton con animate-pulse. Cada card maneja su
+loading state visual.
+
+================================================================================
+18. ESTÉTICA / SISTEMA DE DISEÑO
+================================================================================
+
+Base: shadcn/ui style "new-york", paleta "zinc", variables CSS en HSL.
+
+Tema oscuro por defecto. globals.css define dos sets de tokens (--background,
+--foreground, --primary, --secondary, --muted, --accent, --destructive,
+--border, --input, --ring, --radius).
+
+darkMode: 'class' (tailwind.config.ts). ThemeProvider sincroniza
+AppSettings.theme con la clase del <html>. index.html arranca con
+class="dark" para evitar flash.
+
+Tipografía
+- Sans default del SO. Pesos usados: font-medium, font-semibold (títulos),
+  font-bold (h1, KPIs).
+- Tracking: tracking-tight en headings, tracking-wider o tracking-[0.18em]
+  en eyebrows uppercase.
+- Tamaños: text-2xl/3xl (h1), text-base (CardTitle), text-sm (body),
+  text-xs (metadata), text-[10px]/[11px] (microlabels).
+
+Layout
+- Sidebar fijo 240px (w-60).
+- AppLayout: flex h-screen, main con overflow-y-auto.
+- Páginas centradas con max-w-3xl/4xl/5xl/6xl según densidad
+  (Dashboard usa max-w-6xl).
+- PageHeader estándar: border-b, h1 + descripción a la izquierda,
+  acciones a la derecha.
+
+Patrón de Card "deportiva" recurrente:
+  - h-10 w-10 rounded-md bg-primary/15 text-primary como contenedor del
+    ícono lucide a la izquierda.
+  - Eyebrow text-[10px] uppercase tracking-wider.
+  - Contenido grande tabular-nums.
+  - Hover: border-primary/40 + chevron derecho (cards clickeables).
+
+Barras de progreso
+  - Track: h-1.5 o h-2 rounded-full bg-muted/50 overflow-hidden.
+  - Fill: bg-primary (full) o bg-primary/70 (en proceso).
+  - Transición: transition-all duration-500.
+
+Charts (sin librería)
+  - Bars: flex con divs, altura % calculada con (count/max)*100.
+  - Stacked bars: contenedor con dos divs flex internos en bg-primary y
+    bg-primary/40.
+  - Dots semanales: h-2.5 w-2.5 rounded-full border, fills según estado.
+  - Skill tree: SVG absoluto sobre grid CSS con paths cubic-bezier.
+
+Iconografía
+  - lucide-react EXCLUSIVAMENTE.
+  - h-4 w-4 default en botones, h-3 w-3 en metadata, h-5 w-5 en cards
+    importantes.
+
+Color y semántica
+  - Riesgo (movements): verde (≤1), amber (2-3), rojo (4+).
+  - Estado de revisión de video: outline (pending), secondary (reviewed),
+    default sólido (improved).
+  - Semáforo de sesión: green/yellow/red traducido a utility classes.
+  - Estado de skill tree: primary sólido (mastered), primary/30 (practicing),
+    foreground/15 (available), border-dashed muted (locked).
+
+Microcopy en español rioplatense (vos, tenés, podés, querés). Sin emojis en
+UI ni en código.
+
+Loading & Empty states
+  - DashboardCardSkeleton compartido (animate-pulse con barras grises).
+  - Empty states con patrón consistente: ícono circular bg-muted/60 40x40
+    + texto + CTA opcional.
+
+================================================================================
+19. PATRONES DE CÓDIGO RECURRENTES
+================================================================================
+
+Hook pattern (TanStack Query):
+  export const xxxKeys = {
+    all: ['xxx'] as const,
+    list: () => [...xxxKeys.all, 'list'] as const,
+    byId: (id) => [...xxxKeys.all, 'byId', id] as const
+  }
+  // Mutations invalidan SIEMPRE en cascada lo que pueda haber cambiado:
+  onSuccess: () => {
+    void qc.invalidateQueries({ queryKey: xxxKeys.all })
+    void qc.invalidateQueries({ queryKey: gamificationKeys.all })
+    void qc.invalidateQueries({ queryKey: questsKeys.all })
+    void qc.invalidateQueries({ queryKey: achievementsKeys.all })
+    void qc.invalidateQueries({ queryKey: streakKeys.all })
+  }
+
+Invalidación cruzada (la "regla de oro"):
+  Cada mutation que el repo del main convierte en XP/quest/achievement/streak
+  tiene que invalidar las query keys correspondientes en el frontend.
+  Tabla de quién invalida qué:
+    useFinalizeSession      → sessions, gamification, quests, achievements, streak
+    useSetMovementProgress  → movements, gamification, quests, achievements
+    useCreateVideo          → videos, gamification, quests, achievements
+    useUpdateVideo          → videos, gamification, quests, achievements
+    useCreateSpot           → spots, gamification, quests, achievements
+    useClaimQuest           → quests, gamification, achievements
+    useMarkActiveRecovery   → streak, achievements, sessionsKeys.stats()
+
+IPC pattern:
+  - Channel: 'feature:method'.
+  - Handler: parsea con Zod → llama repo → devuelve DTO plano.
+  - preload: invoke<T>(channel, payload) tipado por ParkourApi.
+
+grantForActive booleano:
+  Toda acción que otorga XP también potencialmente progresa misiones. El
+  patrón es:
+    const granted = await xpEventRepository.grantForActive(source, refId)
+    if (granted) {
+      await questRepository.progressForActive(metric)
+      // …otros progresos relacionados
+    }
+    await achievementRepository.evaluateAndUnlockForActive()
+  La evaluación de achievements se llama SIEMPRE (es idempotente), pero
+  fuera del if (granted) para que también cubra cambios indirectos.
+
+Idempotencia con createMany (SQLite):
+  - SQLite no soporta `skipDuplicates`.
+  - Patrón: SELECT upfront los que ya existen → filtrar el array →
+    createMany del resto. Como main es single-process, no hay race.
+
+Forms:
+  - React Hook Form + zodResolver(zSchema).
+  - Inputs nullables: value={field.value ?? ''} + onChange convierte ''→null.
+  - Selects con valor "sin X": constante '__none__' como SelectItem value.
+
+Repos:
+  - Una sola fuente de DTOs: el repo define toDto(row) y todo lo pasa por ahí.
+  - Parsing de JSON-strings tolerante (try/catch).
+  - Includes con Prisma.XxxInclude tipados, payloads narrow con
+    Prisma.XxxGetPayload<{ include: typeof X_INCLUDE }>.
+
+Diálogos modales:
+  - useState con union discriminada para el estado del modal:
+      type DialogState = { kind:'closed' } | { kind:'edit', item } | …
+  - Sólo un Dialog por página; switch interno por kind.
+
+Funciones puras compartidas:
+  - learningPathStatus.ts es la fuente de verdad de 4 estados de movement
+    (locked / available / practicing / mastered).
+  - heroQuote.ts, pickGuidedRoutine.ts, streaks.ts, xpLevels.ts, etc.
+    todas funciones puras testeables sin Prisma ni Electron.
+
+================================================================================
+20. CONVENCIONES DE CÓDIGO
+================================================================================
+
+- TypeScript estricto.
+- Sin emojis en código.
+- Comentarios en español, sólo donde explican el porqué (no el qué).
+- DTOs son JSON-friendly: Date → ISO string.
+- Schemas Zod = única fuente de validación; los tipos TS se derivan
+  con z.infer.
+- Patrón Form/FormField/FormItem etc importado SIEMPRE desde
+  @/components/ui/form (wrapper shadcn de react-hook-form).
+- Funciones puras en lib/ del feature o services/ del main; nunca llaman
+  Prisma ni Electron.
+
+================================================================================
+21. SCRIPTS Y COMANDOS
+================================================================================
+
+pnpm dev              electron-vite dev (HMR renderer + rebuild main/preload)
+pnpm build            build de producción de los 3 procesos
+pnpm start            preview del build
+pnpm typecheck        web + node
+pnpm typecheck:web    sólo renderer (tsc --noEmit)
+pnpm typecheck:node   sólo main/preload (tsconfig.node.json)
+pnpm db:generate      prisma generate (con DATABASE_URL inyectada)
+pnpm db:migrate       prisma migrate dev
+pnpm db:deploy        prisma migrate deploy
+pnpm db:reset         prisma migrate reset --force (¡borra todo!)
+pnpm db:studio        prisma studio sobre el .db real
+pnpm db:seed          tsx prisma/seed.ts (upsert por slug — re-ejecutable)
+pnpm db:path          imprime DATABASE_URL resuelta
+
+scripts/with-db-env.mjs es clave: asegura que CLI Prisma y app runtime
+escriben al mismo userData/parkour.db.
+
+================================================================================
+22. NAVEGACIÓN (sidebar)
+================================================================================
+
+Lista única en src/renderer/app/nav.ts. Sidebar y router consumen lo mismo.
+
+  / (redirige a /dashboard)
+  /dashboard         LayoutDashboard  Dashboard
+  /profile           User             Perfil
+  /assessment        ClipboardCheck   Evaluación
+  /movements         Activity         Movimientos
+  /movements/:slug                    (detail)
+  /learning-path     Waypoints        Camino
+  /routines          ListChecks       Rutinas
+  /routines/:slug                     (detail)
+  /training          PlayCircle       Entrenar hoy
+  /progress          TrendingUp       Progreso
+  /achievements      Award            Logros
+  /spots             MapPin           Spots
+  /spots/new                          (alta dedicada)
+  /spots/:id                          (detail)
+  /videos            Video            Videos
+  /settings          Settings         Configuración
+
+(Las misiones no tienen ruta propia: la card del dashboard expone un modal
+con la lista completa.)
+
+================================================================================
+23. PENDIENTES CONOCIDOS / DECISIONES POSPUESTAS
+================================================================================
+
+- PhaseTodoCard.tsx ya no se usa. Queda como template reutilizable.
+- Multi-perfil: el schema lo soporta y el export/import los serializa, pero
+  la app sólo opera con un perfil activo a la vez.
+- Thumbnails de video: no se generan. Requeriría ffmpeg.
+- Sin tests automatizados. Las funciones puras están escritas para ser
+  testeables; sólo falta el harness.
+- Componentes huérfanos en dashboard/components que quedaron del rediseño
+  (HeroCard, QuickLinksCard, PracticingMovementsCard, RecentSessionsCard,
+  RecommendedMovementsCard, ActivityChart, MovementProgressChart). Podrían
+  borrarse o moverse a /progress.
+- ActiveSessionView en sessions/components quedó huérfano tras el rediseño
+  del coach guiado (lo reemplazó GuidedSessionView + FeedbackStep).
+- StatsGrid de /progress sigue usando computeSessionStats (racha "tonta",
+  sólo entrenamientos). La racha "inteligente" vive sólo en StreakCard.
+  Decisión consciente para no romper la semántica del progreso histórico.
+- Restore .db hace app.relaunch() + exit(0); no hay swap en caliente.
+- No hay rate limit ni protección contra archivos JSON gigantes en el
+  import — para MVP local-first no aplica.
+- safetyOverridden existe en el modelo pero la UI del coach guiado no lo
+  expone (semáforo rojo simplemente no recomienda nada).
+================================================================================

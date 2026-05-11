@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm *)",
+      "PowerShell(pnpm *)",
+      "PowerShell(npm *)",
+      "PowerShell(Get-NetTCPConnection *)",
+      "Bash(git init *)",
+      "Bash(git branch *)",
+      "Bash(git remote *)",
+      "Bash(git add *)"
+    ]
+  }
+}

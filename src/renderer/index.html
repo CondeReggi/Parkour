@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="es" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Parkour App</title>
+    <style>
+      /*
+       * Anti-flash: pintamos el body con la paleta Asphalt Dark antes de
+       * que cargue Tailwind, así no parpadea blanco mientras se descarga
+       * el CSS. Si el usuario tiene 'light' o 'gotham' guardado, el
+       * ThemeProvider va a re-pintar enseguida.
+       */
+      html.dark, html.dark body {
+        background-color: #09090B;
+        color: #FAFAFA;
+      }
+    </style>
+  </head>
+  <body class="bg-background text-foreground antialiased">
+    <div id="root"></div>
+    <script type="module" src="./main.tsx"></script>
+  </body>
+</html>
