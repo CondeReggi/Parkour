@@ -1,9 +1,12 @@
 import { useMemo, useState } from 'react'
 import { Search } from 'lucide-react'
+import { AnimatePresence } from 'framer-motion'
 import { PageHeader } from '@/components/PageHeader'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { MotionPage } from '@/components/motion/MotionPage'
+import { MotionList, MotionListItem } from '@/components/motion/MotionList'
 import { useActiveProfile } from '@/features/profile/hooks/useActiveProfile'
 import { computeLearningStatuses } from '@/features/learningPath/lib/learningPathStatus'
 import { useMovements } from './hooks/useMovements'
@@ -74,7 +77,7 @@ export function MovementsPage() {
   const showingFiltered = filtered.length !== total
 
   return (
-    <div className="px-8 py-6">
+    <MotionPage className="px-8 py-6">
       <PageHeader
         title="Biblioteca de movimientos"
         description="Filtrá por estado, categoría o dificultad. Tocá una card para entrar al detalle."
@@ -114,25 +117,31 @@ export function MovementsPage() {
               </p>
             </Card>
           ) : (
-            <div className="grid gap-3 md:grid-cols-2">
-              {filtered.map((m) => {
-                const info = infoBySlug.get(m.slug) ?? {
-                  status: 'available' as const,
-                  unmetPrereqSlugs: []
-                }
-                return (
-                  <MovementCard
-                    key={m.id}
-                    movement={m}
-                    info={info}
-                    namesBySlug={namesBySlug}
-                  />
-                )
-              })}
-            </div>
+            <MotionList
+              key={JSON.stringify(filters)}
+              className="grid gap-3 md:grid-cols-2"
+            >
+              <AnimatePresence initial={false}>
+                {filtered.map((m) => {
+                  const info = infoBySlug.get(m.slug) ?? {
+                    status: 'available' as const,
+                    unmetPrereqSlugs: []
+                  }
+                  return (
+                    <MotionListItem key={m.id}>
+                      <MovementCard
+                        movement={m}
+                        info={info}
+                        namesBySlug={namesBySlug}
+                      />
+                    </MotionListItem>
+                  )
+                })}
+              </AnimatePresence>
+            </MotionList>
           )}
         </>
       )}
-    </div>
+    </MotionPage>
   )
 }

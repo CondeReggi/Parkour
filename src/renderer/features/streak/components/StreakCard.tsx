@@ -1,4 +1,5 @@
 import { Flame, HeartPulse, Sparkles, Sun } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
 import type { DayType } from '@shared/types/streak'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -57,9 +58,23 @@ export function StreakCard() {
                 Racha
               </p>
               <div className="flex items-baseline gap-2">
-                <p className="text-2xl font-bold tabular-nums leading-none">
-                  {currentStreak}
-                </p>
+                {/*
+                 * El número de racha se anima por reemplazo: cada cambio de
+                 * valor monta un nuevo span (gracias al key) y AnimatePresence
+                 * cruza el viejo con el nuevo, dándole sensación de "subió".
+                 */}
+                <AnimatePresence mode="popLayout" initial={false}>
+                  <motion.p
+                    key={currentStreak}
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 6 }}
+                    transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                    className="text-2xl font-bold tabular-nums leading-none"
+                  >
+                    {currentStreak}
+                  </motion.p>
+                </AnimatePresence>
                 <span className="text-sm text-muted-foreground">
                   {currentStreak === 1 ? 'día' : 'días'}
                 </span>

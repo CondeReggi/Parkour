@@ -16,15 +16,29 @@ import { VideosPage } from '@/features/videos/VideosPage'
 import { SettingsPage } from '@/features/settings/SettingsPage'
 import { AchievementsPage } from '@/features/achievements/AchievementsPage'
 import { LearningPathPage } from '@/features/learningPath/LearningPathPage'
+import { LoginPage } from '@/features/auth/LoginPage'
+import { RegisterPage } from '@/features/auth/RegisterPage'
+import { AuthGuard } from '@/features/auth/components/AuthGuard'
 
 /**
  * Hash router porque en producción Electron carga vía file:// y el
  * BrowserRouter no funciona ahí. Hash funciona idéntico en dev y prod.
  */
 export const router = createHashRouter([
+  // Rutas de auth — fuera del AppLayout para que tengan su propio
+  // shell centrado (sin sidebar). Son públicas: cualquier usuario las
+  // puede visitar, esté logueado o no.
+  { path: '/login', element: <LoginPage /> },
+  { path: '/register', element: <RegisterPage /> },
   {
     path: '/',
-    element: <AppLayout />,
+    // Todo lo de adentro requiere sesión activa. Sin auth, el guard
+    // redirige a /login antes de montar el layout.
+    element: (
+      <AuthGuard>
+        <AppLayout />
+      </AuthGuard>
+    ),
     children: [
       { index: true, element: <Navigate to="/dashboard" replace /> },
       { path: 'dashboard', element: <DashboardPage /> },

@@ -41,6 +41,7 @@ import {
   SPOT_RISK_OPTIONS,
   SPOT_TYPE_OPTIONS
 } from './spotEnums'
+import { SpotLocationPicker } from './SpotLocationPicker'
 
 const defaultValues: SpotFormValues = {
   name: '',
@@ -54,7 +55,9 @@ const defaultValues: SpotFormValues = {
   spotType: null,
   recommendedLevel: null,
   tags: [],
-  isFavorite: false
+  isFavorite: false,
+  latitude: null,
+  longitude: null
 }
 
 function spotToFormValues(s: SpotDto): SpotFormValues {
@@ -70,7 +73,9 @@ function spotToFormValues(s: SpotDto): SpotFormValues {
     spotType: s.spotType,
     recommendedLevel: s.recommendedLevel,
     tags: s.tags,
-    isFavorite: s.isFavorite
+    isFavorite: s.isFavorite,
+    latitude: s.latitude,
+    longitude: s.longitude
   }
 }
 
@@ -420,6 +425,48 @@ export function SpotForm({ initial, onCreated }: Props) {
                       </div>
                     )}
                   </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Ubicación en el mapa</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <FormField
+              control={form.control}
+              name="latitude"
+              render={() => (
+                <FormItem>
+                  <FormControl>
+                    <SpotLocationPicker
+                      value={
+                        form.watch('latitude') !== null &&
+                        form.watch('longitude') !== null
+                          ? {
+                              latitude: form.watch('latitude') as number,
+                              longitude: form.watch('longitude') as number
+                            }
+                          : null
+                      }
+                      onChange={(next) => {
+                        // RHF setValue con validate para que el refine
+                        // de coords del Zod corra al cambiar.
+                        form.setValue('latitude', next?.latitude ?? null, {
+                          shouldDirty: true,
+                          shouldValidate: true
+                        })
+                        form.setValue('longitude', next?.longitude ?? null, {
+                          shouldDirty: true,
+                          shouldValidate: true
+                        })
+                      }}
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}

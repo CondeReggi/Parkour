@@ -84,6 +84,13 @@ export interface SpotDto {
   recommendedLevel: RecommendedLevel | null
   tags: string[]
   isFavorite: boolean
+  /**
+   * Coordenadas geográficas opcionales del spot. Ambas vienen juntas
+   * (no se persisten validaciones cruzadas en DB; la UI siempre setea
+   * las dos a la vez o las dos a null).
+   */
+  latitude: number | null
+  longitude: number | null
   photos: SpotPhotoDto[]
   obstacles: SpotObstacleDto[]
   idealMovements: SpotIdealMovementDto[]

@@ -50,8 +50,85 @@ model UserProfile {
   quests             QuestAssignment[]
   achievements       AchievementUnlock[]
   dailyActivities    DailyActivity[]
+  /// Cuenta de autenticación opcional asociada al perfil. Existe sólo si
+  /// el usuario inició sesión con un provider externo (hoy: Google).
+  account            UserAccount?
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
+}
+
+// =========================================================
+// AUTENTICACIÓN EXTERNA (OAuth)
+// =========================================================
+
+/// Cuenta vinculada a un provider externo (hoy: Google).
+///
+/// Coexiste con UserProfile: el perfil sigue siendo la fuente de verdad
+/// "local-first" del usuario. La cuenta de auth identifica al humano
+/// detrás del perfil para sincronización futura.
+///
+/// Los tokens viven sólo en este modelo y NUNCA se exponen al renderer.
+/// El bridge IPC sólo devuelve email, displayName, avatarUrl y fechas.
+///
+/// El unique compuesto (provider, providerUserId) previene crear dos
+/// cuentas separadas para el mismo usuario de Google si por algún motivo
+/// la mutación se reintenta.
+model UserAccount {
+  id             String        @id @default(cuid())
+  /// Mecanismo de autenticación de esta cuenta:
+  ///   - 'google'   → cuenta vinculada a Google vía OAuth.
+  ///   - 'password' → cuenta local con email + contraseña hasheada.
+  provider       String
+  /// Identificador estable dentro del provider.
+  ///   - Para 'google': el `sub` del id_token.
+  ///   - Para 'password': el email normalizado (lowercase) — así el
+  ///     unique compuesto (provider, providerUserId) impide registrar
+  ///     dos veces el mismo mail con password.
+  providerUserId String
+  /// Email del usuario. Lo guardamos también acá (además de en
+  /// providerUserId para password) porque al provider Google le
+  /// podemos pedir el email y queremos un campo consistente.
+  email          String
+  displayName    String?
+  avatarUrl      String?
+  /// Hash bcrypt de la contraseña. Sólo presente cuando provider='password'.
+  /// JAMÁS se expone al renderer.
+  passwordHash   String?
+  /// Tokens de OAuth (provider='google'). Pueden ser null si por algún
+  /// motivo no se persistieron. Quedan en el archivo .db de userData
+  /// (mismas ACL del SO que el resto). NUNCA se exponen al renderer.
+  accessToken    String?
+  refreshToken   String?
+  idToken        String?
+  expiresAt      DateTime?
+  /// Si hay un perfil local, lo asociamos. La cuenta puede existir sin
+  /// perfil o el perfil sin cuenta — ambos son independientes.
+  profileId      String?       @unique
+  profile        UserProfile?  @relation(fields: [profileId], references: [id], onDelete: SetNull)
+  /// Histórico de logins. La sesión activa la apunta AppSettings.currentAuthSessionId.
+  sessions       AuthSession[]
+  lastLoginAt    DateTime      @default(now())
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@unique([provider, providerUserId])
+}
+
+/// Sesión de auth. Pensada como log de logins + puntero a la sesión
+/// activa (vía AppSettings.currentAuthSessionId).
+///
+/// En esta versión local-first no expira por sí sola; `expiresAt`
+/// queda preparado para cuando agreguemos sync en la nube.
+/// `revokedAt` se setea al hacer logout — la fila queda como histórico.
+model AuthSession {
+  id            String      @id @default(cuid())
+  userAccountId String
+  account       UserAccount @relation(fields: [userAccountId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+  expiresAt     DateTime?
+  revokedAt     DateTime?
+
+  @@index([userAccountId, createdAt])
 }
 
 model Injury {
@@ -293,6 +370,11 @@ model Spot {
   tags             String              @default("[]")
   /// Si el usuario marcó el spot como favorito. Sirve para filtrar la lista.
   isFavorite       Boolean             @default(false)
+  /// Coordenadas geográficas opcionales del spot. Si están seteadas, el spot
+  /// se muestra como marker en el mapa principal. Validación de rango
+  /// (-90..90 / -180..180) se hace en Zod, no en DB.
+  latitude         Float?
+  longitude        Float?
   obstacles        SpotObstacle[]
   photos           SpotPhoto[]
   idealMovements   SpotIdealMovement[]
@@ -391,12 +473,15 @@ model VideoEntry {
 
 /// Singleton: única fila id=1.
 model AppSettings {
-  id              Int       @id @default(1)
-  theme           String    @default("dark") // dark | light
-  activeProfileId String?
-  lastBackupAt    DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id                    Int       @id @default(1)
+  theme                 String    @default("dark") // dark | light | gotham
+  activeProfileId       String?
+  /// Sesión de auth activa. Null → modo local (sin sesión). El
+  /// servicio de auth lee de acá quién es el usuario actual.
+  currentAuthSessionId  String?
+  lastBackupAt          DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 }
 
 model BackupLog {

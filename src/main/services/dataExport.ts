@@ -285,6 +285,8 @@ export async function buildExportPayload(): Promise<ExportPayload> {
       recommendedLevel: s.recommendedLevel,
       tags: s.tags,
       isFavorite: s.isFavorite,
+      latitude: s.latitude,
+      longitude: s.longitude,
       createdAt: s.createdAt.toISOString(),
       updatedAt: s.updatedAt.toISOString()
     })),

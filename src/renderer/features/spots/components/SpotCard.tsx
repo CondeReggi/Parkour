@@ -1,10 +1,12 @@
 import { useNavigate } from 'react-router-dom'
 import { Activity, ImageOff, MapPin, Star } from 'lucide-react'
+import { motion } from 'framer-motion'
 import type { SpotDto } from '@shared/types/spot'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { hoverLift } from '@/lib/motion'
 import { useSetSpotFavorite } from '../hooks/useSpotMutations'
 import { spotPhotoMediaUrl } from '../lib/mediaUrl'
 import { formatRelativeFromNow } from '../lib/spotFilters'
@@ -30,10 +32,11 @@ export function SpotCard({ spot }: { spot: SpotDto }) {
   }
 
   return (
-    <Card
-      onClick={() => navigate(`/spots/${spot.id}`)}
-      className="overflow-hidden hover:border-primary/40 transition-colors cursor-pointer group"
-    >
+    <motion.div whileHover={hoverLift}>
+      <Card
+        onClick={() => navigate(`/spots/${spot.id}`)}
+        className="overflow-hidden hover:border-primary/40 transition-colors cursor-pointer group"
+      >
       {/* Cover: foto si hay, placeholder con gradient si no */}
       <div className="relative h-36 bg-gradient-to-br from-primary/15 via-secondary to-secondary/50 overflow-hidden">
         {cover && !coverMissing && (
@@ -143,7 +146,8 @@ export function SpotCard({ spot }: { spot: SpotDto }) {
           <span>{lastTrained ?? 'sin entrenar'}</span>
         </div>
       </div>
-    </Card>
+      </Card>
+    </motion.div>
   )
 }
 

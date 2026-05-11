@@ -1,5 +1,7 @@
+import { motion } from 'framer-motion'
 import type { CategoryBreakdownEntry } from '@shared/types/progressInsights'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { progressTransition } from '@/lib/motion'
 import { CATEGORY_LABEL } from '../lib/labels'
 
 /**
@@ -48,9 +50,11 @@ export function CategoryBreakdownCard({
                 </span>
               </div>
               <div className="h-1.5 w-full rounded-full bg-muted/50 overflow-hidden">
-                <div
-                  className="h-full bg-primary transition-all duration-500"
-                  style={{ width: `${pct}%` }}
+                <motion.div
+                  className="h-full bg-primary"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${pct}%` }}
+                  transition={progressTransition}
                 />
               </div>
             </div>

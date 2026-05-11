@@ -16,6 +16,7 @@ import { registerQuestHandlers } from './quest.ipc'
 import { registerAchievementHandlers } from './achievement.ipc'
 import { registerStreakHandlers } from './streak.ipc'
 import { registerProgressHandlers } from './progress.ipc'
+import { registerAuthHandlers } from './auth.ipc'
 
 export function registerHandlers(): void {
   registerMovementHandlers()
@@ -31,4 +32,5 @@ export function registerHandlers(): void {
   registerAchievementHandlers()
   registerStreakHandlers()
   registerProgressHandlers()
+  registerAuthHandlers()
 }

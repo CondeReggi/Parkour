@@ -1,8 +1,10 @@
 import { Link } from 'react-router-dom'
 import { ChevronRight, Trophy } from 'lucide-react'
+import { motion } from 'framer-motion'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useGamificationState } from '@/features/gamification/hooks/useGamification'
+import { progressTransition } from '@/lib/motion'
 import { DashboardCardSkeleton } from './DashboardCardSkeleton'
 
 function fmt(n: number): string {
@@ -56,9 +58,11 @@ export function LevelProgressCard() {
 
           <div className="space-y-1.5 mt-auto">
             <div className="h-2 w-full rounded-full bg-muted/50 overflow-hidden">
-              <div
-                className="h-full bg-primary transition-all duration-500"
-                style={{ width: `${progressPercent}%` }}
+              <motion.div
+                className="h-full bg-primary"
+                initial={{ width: 0 }}
+                animate={{ width: `${progressPercent}%` }}
+                transition={progressTransition}
               />
             </div>
             <div className="flex items-center justify-between text-[11px] text-muted-foreground tabular-nums">

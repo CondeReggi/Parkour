@@ -2,6 +2,8 @@ import { Link } from 'react-router-dom'
 import { PageHeader } from '@/components/PageHeader'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { MotionPage } from '@/components/motion/MotionPage'
+import { MotionList, MotionListItem } from '@/components/motion/MotionList'
 import { useActiveProfile } from '@/features/profile/hooks/useActiveProfile'
 import { StreakCard } from '@/features/streak/components/StreakCard'
 import { RecentAchievementsCard } from '@/features/achievements/components/RecentAchievementsCard'
@@ -22,6 +24,9 @@ import { RecommendedNextMovesCard } from './components/RecommendedNextMovesCard'
  *   3. Grilla 2-col: WeeklyProgressCard + RecentAchievementsCard.
  *   4. Grilla 2-col: RecommendedNextMovesCard + PendingVideosCard.
  *   5. QuickActionsCard full-width.
+ *
+ * Animaciones: MotionPage para entrada general; MotionList envuelve cada
+ * grilla con stagger entre las cards.
  *
  * Loading: cada card tiene su propio skeleton. No mostramos un spinner
  * global salvo que falte el perfil mismo.
@@ -57,26 +62,40 @@ export function DashboardPage() {
   }
 
   return (
-    <div className="px-8 py-6 max-w-6xl space-y-5">
+    <MotionPage className="px-8 py-6 max-w-6xl space-y-5">
       <DashboardHeroCard profile={profile} />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch">
-        <LevelProgressCard />
-        <StreakCard />
-        <DailyMissionCard />
-      </div>
+      <MotionList className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch">
+        <MotionListItem>
+          <LevelProgressCard />
+        </MotionListItem>
+        <MotionListItem>
+          <StreakCard />
+        </MotionListItem>
+        <MotionListItem>
+          <DailyMissionCard />
+        </MotionListItem>
+      </MotionList>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
-        <WeeklyProgressCard />
-        <RecentAchievementsCard />
-      </div>
+      <MotionList className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
+        <MotionListItem>
+          <WeeklyProgressCard />
+        </MotionListItem>
+        <MotionListItem>
+          <RecentAchievementsCard />
+        </MotionListItem>
+      </MotionList>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
-        <RecommendedNextMovesCard />
-        <PendingVideosCard />
-      </div>
+      <MotionList className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
+        <MotionListItem>
+          <RecommendedNextMovesCard />
+        </MotionListItem>
+        <MotionListItem>
+          <PendingVideosCard />
+        </MotionListItem>
+      </MotionList>
 
       <QuickActionsCard />
-    </div>
+    </MotionPage>
   )
 }

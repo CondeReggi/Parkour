@@ -132,6 +132,9 @@ export interface ExportedSpot {
   /** JSON-string del array de tags (igual que en la DB). */
   tags: string
   isFavorite: boolean
+  /** Coordenadas opcionales del spot. */
+  latitude: number | null
+  longitude: number | null
   createdAt: string
   updatedAt: string
 }

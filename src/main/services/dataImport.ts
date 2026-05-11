@@ -152,6 +152,10 @@ export const exportPayloadSchema = z.object({
       recommendedLevel: nullableStr.optional().default(null),
       tags: z.string().optional().default('[]'),
       isFavorite: z.boolean().optional().default(false),
+      // Coordenadas. Default null para exports anteriores a la feature
+      // de mapa.
+      latitude: z.number().nullable().optional().default(null),
+      longitude: z.number().nullable().optional().default(null),
       createdAt: isoString,
       updatedAt: isoString
     })
@@ -500,6 +504,8 @@ export async function applyImportPayload(
           recommendedLevel: s.recommendedLevel,
           tags: s.tags,
           isFavorite: s.isFavorite,
+          latitude: s.latitude,
+          longitude: s.longitude,
           createdAt: new Date(s.createdAt),
           updatedAt: new Date(s.updatedAt)
         }

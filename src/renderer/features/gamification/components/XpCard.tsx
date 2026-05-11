@@ -1,7 +1,9 @@
 import { ChevronRight, Trophy } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { motion } from 'framer-motion'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { progressTransition } from '@/lib/motion'
 import { useGamificationState } from '../hooks/useGamification'
 
 interface Props {
@@ -79,9 +81,11 @@ export function XpCard({ linkToDetail = false }: Props = {}) {
 
       <div>
         <div className="h-2 w-full rounded-full bg-muted/50 overflow-hidden">
-          <div
-            className="h-full bg-primary transition-all"
-            style={{ width: `${progressPercent}%` }}
+          <motion.div
+            className="h-full bg-primary"
+            initial={{ width: 0 }}
+            animate={{ width: `${progressPercent}%` }}
+            transition={progressTransition}
           />
         </div>
         <div className="flex items-center justify-between mt-1.5 text-[11px] text-muted-foreground tabular-nums">

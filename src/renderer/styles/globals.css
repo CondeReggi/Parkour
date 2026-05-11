@@ -1,3 +1,9 @@
+/*
+ * Leaflet CSS — base obligatoria. Tiene que ir antes de @tailwind por la
+ * regla CSS que dice que @import precede a cualquier otra statement.
+ */
+@import 'leaflet/dist/leaflet.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -63,6 +69,15 @@
 
   .dark {
     /* === Asphalt Dark (default oscuro) === */
+    /* Tuning del ambient skyline (sólo Asphalt Dark, no Gotham). Editar
+       acá para más/menos presencia:
+       - opacity 0.25 → skyline más sutil; 0.4 → más visible.
+       - glow 0.04 → tinte naranja casi inexistente; 0.1 → bastante notorio.
+       - height controla cuánto sube el skyline desde abajo. */
+    --ambiance-skyline-opacity: 0.32;
+    --ambiance-glow-opacity: 0.07;
+    --ambiance-skyline-height: 38vh;
+
     --background: 240 6% 6%;        /* #09090B */
     --foreground: 0 0% 98%;         /* #FAFAFA */
 
@@ -145,6 +160,14 @@
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
+    /*
+     * `isolation: isolate` crea un nuevo stacking context en body, así
+     * los pseudo-elementos decorativos con z-index:-1 (ver Dark mode
+     * ambiance abajo) caen detrás del contenido pero quedan por encima
+     * del background, sin pisar nada interactivo.
+     */
+    position: relative;
+    isolation: isolate;
   }
 
   /*
@@ -177,4 +200,192 @@
       hsl(var(--background) / 0.9)
     );
   }
+}
+
+/*
+ * === Leaflet: markers custom y dark mode ===
+ *
+ * Pin con forma de gota apuntando hacia abajo en color primary.
+ * Truco clásico: cuadrado rotado 45deg con border-radius en 3 de 4
+ * esquinas, así el vértice queda apoyado donde está el anchor.
+ */
+.spot-marker__pin {
+  width: 24px;
+  height: 24px;
+  border-radius: 50% 50% 50% 0;
+  background-color: hsl(var(--primary));
+  border: 2px solid hsl(var(--card));
+  box-shadow: 0 2px 6px hsl(0 0% 0% / 0.35);
+  transform: rotate(-45deg);
+  transform-origin: 50% 50%;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.spot-marker:hover .spot-marker__pin {
+  transform: rotate(-45deg) scale(1.1);
+  box-shadow: 0 4px 10px hsl(0 0% 0% / 0.45);
+}
+
+.spot-marker__pin--favorite {
+  width: 28px;
+  height: 28px;
+  background-color: hsl(var(--primary));
+  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.25), 0 2px 6px hsl(0 0% 0% / 0.35);
+}
+
+/*
+ * Marker "tu ubicación": círculo azul con anillo, sin gota — distinto
+ * visualmente de un spot.
+ */
+.current-location-marker__dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background-color: hsl(var(--info));
+  border: 3px solid hsl(var(--card));
+  box-shadow: 0 0 0 3px hsl(var(--info) / 0.25);
+}
+
+/*
+ * Popup theming: fondo card, texto foreground, borde sutil — para que
+ * los popups respeten Urban Light, Asphalt Dark y Gotham.
+ */
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: hsl(var(--card));
+  color: hsl(var(--card-foreground));
+  border: 1px solid hsl(var(--border));
+  box-shadow: 0 8px 24px hsl(0 0% 0% / 0.25);
+}
+
+.leaflet-popup-content {
+  margin: 12px 14px;
+  font-family: inherit;
+}
+
+.leaflet-container a.leaflet-popup-close-button {
+  color: hsl(var(--muted-foreground));
+}
+
+/*
+ * Atribución y controles en modo oscuro: que se lean bien sobre tiles
+ * filtradas.
+ */
+.leaflet-control-attribution {
+  background: hsl(var(--background) / 0.85) !important;
+  color: hsl(var(--muted-foreground)) !important;
+  font-size: 10px !important;
+}
+
+.leaflet-control-attribution a {
+  color: hsl(var(--primary)) !important;
+}
+
+.leaflet-control-zoom a {
+  background: hsl(var(--card)) !important;
+  color: hsl(var(--foreground)) !important;
+  border-color: hsl(var(--border)) !important;
+}
+
+.leaflet-container {
+  background: hsl(var(--secondary));
+  font-family: inherit;
+}
+
+/*
+ * Dark mode: filtramos las tiles para que el OSM "light" no quede
+ * blanco fluorescente. Se aplica tanto a Asphalt Dark como a Gotham
+ * (ambos llevan la clase `dark`).
+ */
+.dark .leaflet-tile {
+  filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.85)
+    saturate(0.7);
+}
+
+/*
+ * =====================================================================
+ * Dark mode ambiance — skyline urbano sutil
+ * =====================================================================
+ *
+ * Ambientación atmosférica para Asphalt Dark: dos capas decorativas
+ * sobre `body` que sugieren noche urbana sin caer en ilustración
+ * literal. Pensado para que el usuario perciba "ciudad", no para que
+ * la mire.
+ *
+ * Scope: `.dark:not(.theme-gotham)` — Gotham se mantiene como la
+ * paleta zinc pura, sin decoración. Si querés activar el efecto
+ * también en Gotham, cambiá el selector a `.dark`.
+ *
+ * Tuning: ver las CSS vars `--ambiance-skyline-opacity`,
+ * `--ambiance-glow-opacity`, `--ambiance-skyline-height` en .dark.
+ */
+
+/*
+ * Capa 1: atmosphere — radial gradients muy bajos en la parte
+ * inferior. Sugieren la "polución lumínica" de una ciudad lejana sin
+ * mostrar luces concretas. Mezcla un tinte naranja (la marca) y un
+ * azul muy frío (calle/noche).
+ */
+.dark:not(.theme-gotham) body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      ellipse 70% 35% at 78% 100%,
+      hsl(var(--primary) / var(--ambiance-glow-opacity, 0.07)) 0%,
+      transparent 65%
+    ),
+    radial-gradient(
+      ellipse 55% 30% at 22% 100%,
+      hsl(213 94% 68% / 0.04) 0%,
+      transparent 70%
+    ),
+    radial-gradient(
+      ellipse 100% 60% at 50% 0%,
+      hsl(240 8% 4% / 0.6) 0%,
+      transparent 60%
+    );
+}
+
+/*
+ * Capa 2: skyline abstracto en la parte inferior. SVG inline en data
+ * URI, sin ventanas, sin detalles — sólo rectángulos de alturas
+ * variadas. Blur sutil + máscara que disuelve la parte superior para
+ * que las siluetas se fundan con el fondo (no parezca una banda
+ * recortada).
+ *
+ * preserveAspectRatio='none' deja que el viewBox se estire al ancho
+ * del viewport, así no aparecen "edges" del SVG en pantallas anchas.
+ */
+.dark:not(.theme-gotham) body::after {
+  content: '';
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--ambiance-skyline-height, 38vh);
+  max-height: 320px;
+  z-index: -1;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1600 400' preserveAspectRatio='none'%3E%3Cg fill='%23000'%3E%3Crect x='-10' y='220' width='110' height='180'/%3E%3Crect x='95' y='170' width='70' height='230'/%3E%3Crect x='160' y='240' width='95' height='160'/%3E%3Crect x='250' y='150' width='80' height='250'/%3E%3Crect x='325' y='200' width='100' height='200'/%3E%3Crect x='420' y='140' width='70' height='260'/%3E%3Crect x='485' y='215' width='95' height='185'/%3E%3Crect x='575' y='180' width='80' height='220'/%3E%3Crect x='650' y='225' width='110' height='175'/%3E%3Crect x='755' y='155' width='75' height='245'/%3E%3Crect x='825' y='205' width='90' height='195'/%3E%3Crect x='910' y='170' width='80' height='230'/%3E%3Crect x='985' y='215' width='105' height='185'/%3E%3Crect x='1085' y='175' width='75' height='225'/%3E%3Crect x='1155' y='235' width='90' height='165'/%3E%3Crect x='1240' y='150' width='80' height='250'/%3E%3Crect x='1315' y='200' width='100' height='200'/%3E%3Crect x='1410' y='170' width='75' height='230'/%3E%3Crect x='1480' y='220' width='90' height='180'/%3E%3Crect x='1565' y='185' width='55' height='215'/%3E%3C/g%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: bottom;
+  background-size: cover;
+  opacity: var(--ambiance-skyline-opacity, 0.32);
+  filter: blur(1.5px);
+  -webkit-mask-image: linear-gradient(
+    to top,
+    black 0%,
+    black 35%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to top,
+    black 0%,
+    black 35%,
+    transparent 100%
+  );
 }

@@ -1,11 +1,14 @@
 import { useMemo, useState } from 'react'
 import { Plus, Video } from 'lucide-react'
+import { AnimatePresence } from 'framer-motion'
 import type { PickedVideo, VideoDto } from '@shared/types/video'
 import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { MotionPage } from '@/components/motion/MotionPage'
+import { MotionList, MotionListItem } from '@/components/motion/MotionList'
 import { useVideos } from './hooks/useVideos'
 import { VideoCard } from './components/VideoCard'
 import { VideoFormDialog } from './components/VideoFormDialog'
@@ -46,7 +49,7 @@ export function VideosPage() {
   const showingFiltered = filters !== defaultVideoFilters && filtered.length !== total
 
   return (
-    <div className="px-8 py-6 max-w-3xl">
+    <MotionPage className="px-8 py-6 max-w-3xl">
       <PageHeader
         title="Videos"
         description="Tus videos locales asociados a movimientos, spots y entrenamientos."
@@ -98,15 +101,21 @@ export function VideosPage() {
               </p>
             </Card>
           ) : (
-            <div className="grid gap-3">
-              {filtered.map((v) => (
-                <VideoCard
-                  key={v.id}
-                  video={v}
-                  onClick={() => setDialog({ kind: 'edit', video: v })}
-                />
-              ))}
-            </div>
+            <MotionList
+              key={JSON.stringify(filters)}
+              className="grid gap-3"
+            >
+              <AnimatePresence initial={false}>
+                {filtered.map((v) => (
+                  <MotionListItem key={v.id}>
+                    <VideoCard
+                      video={v}
+                      onClick={() => setDialog({ kind: 'edit', video: v })}
+                    />
+                  </MotionListItem>
+                ))}
+              </AnimatePresence>
+            </MotionList>
           )}
         </>
       )}
@@ -119,6 +128,6 @@ export function VideosPage() {
         video={dialog.kind === 'edit' ? dialog.video : undefined}
         picked={dialog.kind === 'create' ? dialog.picked : undefined}
       />
-    </div>
+    </MotionPage>
   )
 }

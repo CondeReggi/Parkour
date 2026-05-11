@@ -4,6 +4,8 @@ import { PageHeader } from '@/components/PageHeader'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { MotionPage } from '@/components/motion/MotionPage'
+import { MotionList, MotionListItem } from '@/components/motion/MotionList'
 import { useActiveProfile } from '@/features/profile/hooks/useActiveProfile'
 import { useSessionsList } from '@/features/sessions/hooks/useSessions'
 import { SessionCard } from '@/features/sessions/components/SessionCard'
@@ -50,7 +52,7 @@ export function ProgressPage() {
   }
 
   return (
-    <div className="px-8 py-6 max-w-5xl space-y-6">
+    <MotionPage className="px-8 py-6 max-w-5xl space-y-6">
       <PageHeader
         title="Progreso"
         description="Cómo venís mejorando — resumen semanal, comparación, foco y movimientos cerca de dominar."
@@ -146,13 +148,15 @@ export function ProgressPage() {
         )}
 
         {sessions && sessions.length > 0 && (
-          <div className="grid gap-3">
+          <MotionList className="grid gap-3">
             {sessions.map((s) => (
-              <SessionCard key={s.id} session={s} />
+              <MotionListItem key={s.id}>
+                <SessionCard session={s} />
+              </MotionListItem>
             ))}
-          </div>
+          </MotionList>
         )}
       </section>
-    </div>
+    </MotionPage>
   )
 }

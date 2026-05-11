@@ -188,6 +188,8 @@ function spotToDto(s: SpotWithRelations, agg: SessionAgg | undefined): SpotDto {
     recommendedLevel: (s.recommendedLevel as RecommendedLevel | null) ?? null,
     tags: parseTagsField(s.tags),
     isFavorite: s.isFavorite,
+    latitude: s.latitude,
+    longitude: s.longitude,
     photos: s.photos
       .slice()
       .sort((a, b) => a.order - b.order || a.createdAt.getTime() - b.createdAt.getTime())
@@ -250,7 +252,9 @@ export const spotRepository = {
         spotType: input.spotType,
         recommendedLevel: input.recommendedLevel,
         tags: JSON.stringify(input.tags),
-        isFavorite: input.isFavorite
+        isFavorite: input.isFavorite,
+        latitude: input.latitude,
+        longitude: input.longitude
       },
       include: FULL_SPOT_INCLUDE
     })
@@ -286,7 +290,9 @@ export const spotRepository = {
         spotType: data.spotType,
         recommendedLevel: data.recommendedLevel,
         tags: JSON.stringify(data.tags),
-        isFavorite: data.isFavorite
+        isFavorite: data.isFavorite,
+        latitude: data.latitude,
+        longitude: data.longitude
       },
       include: FULL_SPOT_INCLUDE
     })

@@ -8,7 +8,10 @@
       "Bash(git init *)",
       "Bash(git branch *)",
       "Bash(git remote *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(grep -E \"\\(node_modules|\\\\.env$|\\\\.db$|^out/\\)\")",
+      "Bash(git push *)",
+      "Bash(grep -n \"^    </Card>\\\\|^  \\)$\" \"C:\\\\Users\\\\lconde\\\\Desktop\\\\Parkour APP\\\\src\\\\renderer\\\\features\\\\spots\\\\components\\\\SpotCard.tsx\")"
     ]
   }
 }

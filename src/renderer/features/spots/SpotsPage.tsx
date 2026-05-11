@@ -1,14 +1,18 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Plus } from 'lucide-react'
+import { AnimatePresence } from 'framer-motion'
 import { PageHeader } from '@/components/PageHeader'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { MotionPage } from '@/components/motion/MotionPage'
+import { MotionList, MotionListItem } from '@/components/motion/MotionList'
 import { useSpots } from './hooks/useSpots'
 import { SpotCard, SpotsEmptyState } from './components/SpotCard'
 import { SpotFiltersBar } from './components/SpotFiltersBar'
+import { SpotMap } from './components/SpotMap'
 import { applySpotFilters, DEFAULT_SPOT_FILTERS } from './lib/spotFilters'
 
 export function SpotsPage() {
@@ -26,7 +30,7 @@ export function SpotsPage() {
     : '…'
 
   return (
-    <div className="px-8 py-6 max-w-5xl">
+    <MotionPage className="px-8 py-6 max-w-5xl">
       <PageHeader
         title="Spots"
         description="Tu mapa personal de entrenamiento. Cada lugar con sus obstáculos, movimientos y memoria."
@@ -46,6 +50,17 @@ export function SpotsPage() {
             {error instanceof Error ? error.message : String(error)}
           </AlertDescription>
         </Alert>
+      )}
+
+      {/*
+       * Mapa principal: lo mostramos siempre, incluso sin spots todavía.
+       * Si no hay ninguno con coordenadas, el mapa igual sirve de pista
+       * visual para entender que el flujo nuevo permite elegir lugar.
+       */}
+      {!isLoading && (
+        <div className="mb-5">
+          <SpotMap spots={filtered.length > 0 ? filtered : spots ?? []} />
+        </div>
       )}
 
       {spots && spots.length > 0 && (
@@ -70,12 +85,21 @@ export function SpotsPage() {
       )}
 
       {filtered.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((s) => (
-            <SpotCard key={s.id} spot={s} />
-          ))}
-        </div>
+        <MotionList
+          // El `key` cambia con cualquier filtro: forzamos re-stagger al
+          // filtrar para que el resultado se sienta vivo.
+          key={JSON.stringify(filters)}
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+        >
+          <AnimatePresence initial={false}>
+            {filtered.map((s) => (
+              <MotionListItem key={s.id}>
+                <SpotCard spot={s} />
+              </MotionListItem>
+            ))}
+          </AnimatePresence>
+        </MotionList>
       )}
-    </div>
+    </MotionPage>
   )
 }

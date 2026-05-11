@@ -42,6 +42,15 @@ import type {
 } from './types/achievement'
 import type { DailyActivityDto, StreakStateDto } from './types/streak'
 import type { ProgressInsightsDto } from './types/progressInsights'
+import type {
+  AuthAccountDto,
+  AuthStateDto,
+  SignInResultDto
+} from './types/auth'
+import type {
+  LoginInput,
+  RegisterInput
+} from './schemas/auth.schemas'
 import type { MarkActiveRecoveryInput } from './schemas/streak.schemas'
 import type {
   CreateProfileInput,
@@ -206,5 +215,32 @@ export interface ParkourApi {
      * cerca de dominar y texto interpretativo.
      */
     getInsights: () => Promise<ProgressInsightsDto>
+  }
+
+  auth: {
+    /**
+     * Estado completo de auth: mode (local | authenticated), cuenta
+     * actual (sin tokens) y datos de la sesión. Es lo que consume la
+     * UI para decidir si mostrar login/registro o el contenido normal.
+     */
+    getState: () => Promise<AuthStateDto>
+    /** Registra una cuenta local con email + password. */
+    register: (input: RegisterInput) => Promise<SignInResultDto>
+    /** Login con email + password. */
+    login: (input: LoginInput) => Promise<SignInResultDto>
+    /**
+     * Inicia el flujo OAuth con Google. El proceso main levanta un
+     * servidor local, abre el navegador del SO y espera el callback.
+     */
+    signInWithGoogle: () => Promise<SignInResultDto>
+    /** Cierra sesión: revoca la session activa, conserva la cuenta. */
+    logout: () => Promise<void>
+    /** Limpia sesión sin tirar error: "decidí seguir sin cuenta". */
+    continueLocal: () => Promise<void>
+    /**
+     * Asocia el perfil activo a la cuenta autenticada (si la hay).
+     * Devuelve la cuenta actualizada o null si no hay sesión.
+     */
+    linkCurrentProfile: () => Promise<AuthAccountDto | null>
   }
 }

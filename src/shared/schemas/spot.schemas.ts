@@ -25,7 +25,19 @@ export const spotTypeEnum = z.enum([
 ])
 export const recommendedLevelEnum = z.enum(['beginner', 'base', 'intermediate'])
 
-export const spotFormSchema = z.object({
+/**
+ * Coordenadas geográficas opcionales. Ambas vienen juntas o ambas null —
+ * el `.refine` rechaza el caso en que una esté seteada y la otra no.
+ */
+const latitudeSchema = z.number().min(-90).max(90).nullable()
+const longitudeSchema = z.number().min(-180).max(180).nullable()
+
+/**
+ * Base sin refinements. La extendemos para crear/editar y, recién al
+ * final, aplicamos el `.refine()` de coordenadas (no se puede extender
+ * un esquema ya refinado).
+ */
+const spotFormBaseSchema = z.object({
   name: z.string().min(1, 'Requerido').max(100),
   locationText: z.string().max(200).nullable(),
   description: z.string().max(1000).nullable(),
@@ -37,16 +49,32 @@ export const spotFormSchema = z.object({
   spotType: spotTypeEnum.nullable(),
   recommendedLevel: recommendedLevelEnum.nullable(),
   tags: z.array(z.string().min(1).max(30)).max(20),
-  isFavorite: z.boolean()
+  isFavorite: z.boolean(),
+  latitude: latitudeSchema,
+  longitude: longitudeSchema
 })
+
+const requireBothCoordsOrNone = (val: { latitude: number | null; longitude: number | null }) =>
+  (val.latitude === null && val.longitude === null) ||
+  (val.latitude !== null && val.longitude !== null)
+
+const coordsRefineOptions = {
+  message: 'Las coordenadas deben venir las dos juntas o las dos vacías.',
+  path: ['latitude']
+}
+
+export const spotFormSchema = spotFormBaseSchema.refine(
+  requireBothCoordsOrNone,
+  coordsRefineOptions
+)
 export type SpotFormValues = z.infer<typeof spotFormSchema>
 
 export const createSpotInputSchema = spotFormSchema
 export type CreateSpotInput = z.infer<typeof createSpotInputSchema>
 
-export const updateSpotInputSchema = spotFormSchema.extend({
-  id: z.string().min(1)
-})
+export const updateSpotInputSchema = spotFormBaseSchema
+  .extend({ id: z.string().min(1) })
+  .refine(requireBothCoordsOrNone, coordsRefineOptions)
 export type UpdateSpotInput = z.infer<typeof updateSpotInputSchema>
 
 export const deleteSpotInputSchema = z.object({ id: z.string().min(1) })

@@ -24,6 +24,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { useAppSettings, useSetTheme } from './hooks/useAppSettings'
 import { useQueryClient } from '@tanstack/react-query'
+import { AuthSection } from '@/features/auth/components/AuthSection'
 
 type FeedbackKind = 'success' | 'error'
 interface Feedback {
@@ -216,6 +217,9 @@ export function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* === Cuenta / Auth === */}
+      <AuthSection />
 
       {/* === Datos del usuario (JSON) === */}
       <Card>

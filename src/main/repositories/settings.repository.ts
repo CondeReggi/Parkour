@@ -62,5 +62,19 @@ export const settingsRepository = {
       where: { id: SETTINGS_ID },
       data: { lastBackupAt: date }
     })
+  },
+
+  /** Sesión de auth activa. null = modo local. */
+  async getCurrentAuthSessionId(): Promise<string | null> {
+    const row = await ensureRow()
+    return row.currentAuthSessionId
+  },
+
+  async setCurrentAuthSessionId(sessionId: string | null): Promise<void> {
+    await ensureRow()
+    await prisma.appSettings.update({
+      where: { id: SETTINGS_ID },
+      data: { currentAuthSessionId: sessionId }
+    })
   }
 }

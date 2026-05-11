@@ -2,6 +2,8 @@ import { useMemo } from 'react'
 import { PageHeader } from '@/components/PageHeader'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { MotionPage } from '@/components/motion/MotionPage'
+import { MotionList, MotionListItem } from '@/components/motion/MotionList'
 import { useAchievementsList } from './hooks/useAchievements'
 import { AchievementCard } from './components/AchievementCard'
 import {
@@ -38,7 +40,7 @@ export function AchievementsPage() {
   }, [data])
 
   return (
-    <div className="px-8 py-6 max-w-5xl space-y-6">
+    <MotionPage className="px-8 py-6 max-w-5xl space-y-6">
       <PageHeader
         title="Logros"
         description="Hitos que se desbloquean automáticamente cuando alcanzás cierto progreso."
@@ -83,14 +85,16 @@ export function AchievementsPage() {
                   {unlockedInCat} / {items.length}
                 </Badge>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <MotionList className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {items.map((a) => (
-                  <AchievementCard key={a.slug} achievement={a} />
+                  <MotionListItem key={a.slug}>
+                    <AchievementCard achievement={a} />
+                  </MotionListItem>
                 ))}
-              </div>
+              </MotionList>
             </section>
           )
         })}
-    </div>
+    </MotionPage>
   )
 }

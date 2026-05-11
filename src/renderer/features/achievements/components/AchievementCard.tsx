@@ -1,4 +1,5 @@
 import { Lock } from 'lucide-react'
+import { motion } from 'framer-motion'
 import type { AchievementDto } from '@shared/types/achievement'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -29,7 +30,15 @@ export function AchievementCard({ achievement: a }: Props) {
         !a.unlocked && 'opacity-60'
       )}
     >
-      <div
+      {/*
+       * El ícono del logro desbloqueado entra con un pequeño scale-in
+       * — sutil pero da la sensación de "se prendió". Los bloqueados se
+       * quedan estáticos.
+       */}
+      <motion.div
+        initial={a.unlocked ? { scale: 0.85, opacity: 0.6 } : false}
+        animate={a.unlocked ? { scale: 1, opacity: 1 } : undefined}
+        transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
         className={cn(
           'h-10 w-10 rounded-md flex items-center justify-center flex-shrink-0',
           a.unlocked
@@ -38,7 +47,7 @@ export function AchievementCard({ achievement: a }: Props) {
         )}
       >
         {a.unlocked ? <Icon className="h-5 w-5" /> : <Lock className="h-4 w-4" />}
-      </div>
+      </motion.div>
       <div className="min-w-0 flex-1 space-y-1">
         <div className="flex items-start justify-between gap-2">
           <p className="text-sm font-medium leading-tight">{a.title}</p>

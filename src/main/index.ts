@@ -6,11 +6,16 @@ import {
   registerParkourMediaPrivileges,
   registerParkourMediaProtocol
 } from './protocol/parkourMedia'
+import { loadDotEnv } from './services/envLoader'
 
 // Forzamos el nombre de la app antes de cualquier acceso a userData,
 // para que app.getPath('userData') resuelva al mismo directorio que
 // scripts/with-db-env.mjs (donde corre la migración y el seed).
 app.setName('parkour-app')
+
+// Cargamos .env al iniciar — el servicio de Google Auth necesita
+// GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET para funcionar.
+loadDotEnv()
 
 // Los privilegios del scheme deben declararse antes de app.whenReady().
 registerParkourMediaPrivileges()

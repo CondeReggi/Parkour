@@ -111,6 +111,16 @@ const api: ParkourApi = {
 
   progress: {
     getInsights: () => invoke('progress:getInsights')
+  },
+
+  auth: {
+    getState: () => invoke('auth:getState'),
+    register: (input) => invoke('auth:register', input),
+    login: (input) => invoke('auth:login', input),
+    signInWithGoogle: () => invoke('auth:signInWithGoogle'),
+    logout: () => invoke('auth:logout'),
+    continueLocal: () => invoke('auth:continueLocal'),
+    linkCurrentProfile: () => invoke('auth:linkCurrentProfile')
   }
 }
 

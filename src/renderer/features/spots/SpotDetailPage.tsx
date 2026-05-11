@@ -17,6 +17,7 @@ import { useDeleteSpot, useSetSpotFavorite } from './hooks/useSpotMutations'
 import { SpotForm } from './components/SpotForm'
 import { ObstaclesPanel } from './components/ObstaclesPanel'
 import { SpotPhotosGallery } from './components/SpotPhotosGallery'
+import { SpotLocationCard } from './components/SpotLocationCard'
 import { IdealMovementsEditor } from './components/IdealMovementsEditor'
 import { SpotSessionHistory } from './components/SpotSessionHistory'
 import { SpotVideosList } from './components/SpotVideosList'
@@ -239,6 +240,8 @@ export function SpotDetailPage() {
           </div>
         </CardContent>
       </Card>
+
+      <SpotLocationCard spot={spot} />
 
       <SpotPhotosGallery spotId={spot.id} photos={spot.photos} />
 
