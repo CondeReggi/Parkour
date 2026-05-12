@@ -88,6 +88,14 @@ model UserAccount {
   /// Opt-in explícito para que el perfil aparezca en la comunidad.
   /// Default false: identidad privada hasta que el usuario decida.
   isPublicProfile Boolean       @default(false)
+  /// Toggles granulares de privacidad del perfil público. Aplican sólo
+  /// si isPublicProfile=true. Default true porque tiene sentido que la
+  /// gente vea nivel y stats si ya decidió ser pública — el master
+  /// switch sigue siendo isPublicProfile.
+  showLevel              Boolean @default(true)
+  showStats              Boolean @default(true)
+  showDominatedMovements Boolean @default(true)
+  showSharedSpots        Boolean @default(true)
   /// =====  Auth  =====
   /// Mecanismo de autenticación de esta cuenta:
   ///   - 'google'   → cuenta vinculada a Google vía OAuth.
@@ -125,6 +133,10 @@ model UserAccount {
   authoredSpots    Spot[]
   authoredRoutines Routine[]
   authoredVideos   VideoEntry[]
+  /// Posts del usuario en la comunidad.
+  posts          Post[]
+  /// Comentarios del usuario (sobre posts, spots o movements).
+  comments       Comment[]
   lastLoginAt    DateTime      @default(now())
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
@@ -232,6 +244,10 @@ model Movement {
   routineExercises  RoutineExercise[]
   obstacleLinks     SpotObstacleMovement[]
   idealAtSpots      SpotIdealMovement[]
+  /// Posts que referencian este movimiento.
+  posts             Post[]
+  /// Comentarios sobre este movimiento (tips de progresión, etc.).
+  comments          Comment[]
   createdAt         DateTime               @default(now())
   updatedAt         DateTime               @updatedAt
 
@@ -281,6 +297,16 @@ model Routine {
   /// 'unlisted'. La publicación real vive server-side; este flag es
   /// sólo el opt-in del usuario.
   visibility         String           @default("private")
+  /// Marca de cuándo se publicó (visibility ≠ private). Se setea al
+  /// pasar de private a public/unlisted; se nullea al volver a private.
+  sharedAt           DateTime?
+  /// Slug estable para URLs no listadas (/share/<slug>). Se genera la
+  /// primera vez que la entidad sale de private y se conserva aunque
+  /// vuelva a privatizarse, así un link viejo sigue siendo el mismo si
+  /// el usuario re-publica.
+  shareSlug          String?          @unique
+  /// Posts que referencian esta rutina.
+  posts              Post[]
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
 }
@@ -353,6 +379,8 @@ model WorkoutSession {
   personalNotes      String?
   movements          WorkoutMovement[]
   videos             VideoEntry[]
+  /// Posts que referencian esta sesión (poco común, pero soportado).
+  posts              Post[]
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
 
@@ -414,6 +442,15 @@ model Spot {
   author           UserAccount?        @relation(fields: [authorAccountId], references: [id], onDelete: SetNull)
   /// Visibilidad. Default 'private': sólo se ve en este dispositivo.
   visibility       String              @default("private")
+  /// Cuándo el usuario lo expuso (private→public/unlisted). Null si nunca
+  /// salió de private o si volvió a privatizarse.
+  sharedAt         DateTime?
+  /// Slug estable para URLs no listadas; sobrevive re-privatización.
+  shareSlug        String?             @unique
+  /// Posts que referencian este spot.
+  posts            Post[]
+  /// Comentarios sobre este spot.
+  comments         Comment[]
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
 }
@@ -500,6 +537,12 @@ model VideoEntry {
   author          UserAccount?  @relation(fields: [authorAccountId], references: [id], onDelete: SetNull)
   /// Visibilidad. Default 'private'.
   visibility      String        @default("private")
+  /// Cuándo se publicó (private→public/unlisted). Null en estado private.
+  sharedAt        DateTime?
+  /// Slug estable para URLs no listadas; sobrevive re-privatización.
+  shareSlug       String?       @unique
+  /// Posts que referencian este video.
+  posts           Post[]
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
 
@@ -647,4 +690,103 @@ model DailyActivity {
 
   @@unique([profileId, date, type])
   @@index([profileId, date])
+}
+
+// =========================================================
+// COMUNIDAD — PUBLICACIONES (POSTS)
+// =========================================================
+
+/// Publicación de comunidad. La base del feed/foro.
+///
+/// Hoy no hay sync remoto, así que un post sólo se ve en este
+/// dispositivo, pero el modelo ya está pensado para cuando llegue:
+/// `visibility` controla qué se publicaría, `status` permite ocultar/
+/// borrar sin perder histórico, y los `related*Id` son FKs a contenido
+/// que el usuario puede asociar (con SET NULL si el recurso desaparece).
+///
+/// Borrado: soft. `status='deleted'` + `deletedAt`. La fila queda y la
+/// query default la filtra. Recuperación futura posible.
+///
+/// Autor obligatorio: los posts sin cuenta detrás no tienen sentido en
+/// una app con identidad. Cascade en delete del UserAccount: si la
+/// cuenta se elimina, sus posts también.
+model Post {
+  id                String           @id @default(cuid())
+  authorAccountId   String
+  author            UserAccount      @relation(fields: [authorAccountId], references: [id], onDelete: Cascade)
+  title             String
+  body              String
+  /// Tipo del post: question | progress | advice | shared_spot |
+  /// shared_routine | video_review | achievement | general.
+  type              String
+  /// private | public | unlisted. Default public — un post existe para
+  /// la comunidad. El feed sólo muestra non-private.
+  visibility        String           @default("public")
+  /// active | hidden | deleted | reported. Default active. Las queries
+  /// del feed filtran a active.
+  status            String           @default("active")
+  /// Asociaciones opcionales. SET NULL en delete del recurso para no
+  /// romper el post histórico.
+  relatedMovementId String?
+  relatedMovement   Movement?        @relation(fields: [relatedMovementId], references: [id], onDelete: SetNull)
+  relatedSpotId     String?
+  relatedSpot       Spot?            @relation(fields: [relatedSpotId], references: [id], onDelete: SetNull)
+  relatedRoutineId  String?
+  relatedRoutine    Routine?         @relation(fields: [relatedRoutineId], references: [id], onDelete: SetNull)
+  relatedVideoId    String?
+  relatedVideo      VideoEntry?      @relation(fields: [relatedVideoId], references: [id], onDelete: SetNull)
+  relatedSessionId  String?
+  relatedSession    WorkoutSession?  @relation(fields: [relatedSessionId], references: [id], onDelete: SetNull)
+  /// Comentarios sobre este post.
+  comments          Comment[]
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  /// Timestamp de soft-delete. Null mientras el post está vivo.
+  deletedAt         DateTime?
+
+  @@index([authorAccountId, createdAt])
+  @@index([status, visibility, createdAt])
+  @@index([type, createdAt])
+}
+
+/// Comentario polimórfico: vive en exactamente UNA de Post, Spot o
+/// Movement. La regla "exactamente uno" se chequea en el repo antes de
+/// insertar (SQLite no soporta CHECK multi-columna confiables).
+///
+/// Nesting de un solo nivel: si `parentCommentId` está seteado, este
+/// comentario es una respuesta. El repo rechaza intentos de responder
+/// a una respuesta (sería 2 niveles).
+///
+/// Soft delete: status='deleted' + deletedAt. Se mantiene la fila para
+/// preservar el hilo cuando tiene replies vivas (la UI muestra
+/// "Comentario eliminado" en su lugar).
+model Comment {
+  id              String       @id @default(cuid())
+  authorAccountId String
+  author          UserAccount  @relation(fields: [authorAccountId], references: [id], onDelete: Cascade)
+  body            String
+  /// Exactamente uno de estos tres debe estar seteado.
+  postId          String?
+  post            Post?        @relation(fields: [postId], references: [id], onDelete: Cascade)
+  spotId          String?
+  spot            Spot?        @relation(fields: [spotId], references: [id], onDelete: Cascade)
+  movementId      String?
+  movement        Movement?    @relation(fields: [movementId], references: [id], onDelete: Cascade)
+  /// Self-FK para respuestas. Cascade: si borrás el padre, las replies
+  /// también desaparecen.
+  parentCommentId String?
+  parent          Comment?     @relation("CommentReplies", fields: [parentCommentId], references: [id], onDelete: Cascade)
+  replies         Comment[]    @relation("CommentReplies")
+  /// active | hidden | deleted | reported. Default active.
+  status          String       @default("active")
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  /// Timestamp de soft-delete.
+  deletedAt       DateTime?
+
+  @@index([postId, createdAt])
+  @@index([spotId, createdAt])
+  @@index([movementId, createdAt])
+  @@index([parentCommentId, createdAt])
+  @@index([authorAccountId, createdAt])
 }

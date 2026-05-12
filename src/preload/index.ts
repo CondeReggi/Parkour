@@ -121,6 +121,33 @@ const api: ParkourApi = {
     logout: () => invoke('auth:logout'),
     continueLocal: () => invoke('auth:continueLocal'),
     linkCurrentProfile: () => invoke('auth:linkCurrentProfile')
+  },
+
+  publicProfile: {
+    getMine: () => invoke('publicProfile:getMine'),
+    upsertMine: (input) => invoke('publicProfile:upsertMine', input),
+    checkUsernameAvailability: (input) =>
+      invoke('publicProfile:checkUsernameAvailability', input),
+    getByUsername: (input) => invoke('publicProfile:getByUsername', input),
+    setPrivacy: (input) => invoke('publicProfile:setPrivacy', input)
+  },
+
+  posts: {
+    getFeed: (input) => invoke('posts:getFeed', input),
+    getMine: () => invoke('posts:getMine'),
+    getById: (input) => invoke('posts:getById', input),
+    getByAuthor: (input) => invoke('posts:getByAuthor', input),
+    create: (input) => invoke('posts:create', input),
+    update: (input) => invoke('posts:update', input),
+    delete: (input) => invoke('posts:delete', input)
+  },
+
+  comments: {
+    getByTarget: (input) => invoke('comments:getByTarget', input),
+    countByTarget: (input) => invoke('comments:countByTarget', input),
+    create: (input) => invoke('comments:create', input),
+    update: (input) => invoke('comments:update', input),
+    delete: (input) => invoke('comments:delete', input)
   }
 }
 

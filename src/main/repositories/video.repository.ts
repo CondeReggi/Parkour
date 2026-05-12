@@ -18,6 +18,8 @@ import { xpEventRepository } from './xpEvent.repository'
 import { questRepository } from './quest.repository'
 import { achievementRepository } from './achievement.repository'
 import { authService } from '../services/authService'
+import { resolveVisibilityChange } from '../services/visibilityGuard'
+import type { Visibility } from '@shared/types/sharing'
 
 const VIDEO_INCLUDE = {
   movement: { select: { id: true, name: true, slug: true } },
@@ -49,6 +51,8 @@ function videoToDto(v: VideoWithRelations): VideoDto {
     fileMissing: !existsSync(v.filePath),
     authorAccountId: v.authorAccountId,
     visibility: v.visibility as VideoDto['visibility'],
+    sharedAt: v.sharedAt ? v.sharedAt.toISOString() : null,
+    shareSlug: v.shareSlug,
     createdAt: v.createdAt.toISOString(),
     updatedAt: v.updatedAt.toISOString()
   }
@@ -81,8 +85,14 @@ export const videoRepository = {
   },
 
   async create(input: CreateVideoInput): Promise<VideoDto> {
-    // Fase 0: sembramos autor si hay sesión activa.
     const authorAccountId = await authService.getCurrentAccountId()
+
+    const resolved = await resolveVisibilityChange({
+      requested: input.visibility,
+      current: null,
+      currentSlug: null
+    })
+
     const created = await prisma.videoEntry.create({
       data: {
         filePath: input.filePath,
@@ -94,8 +104,10 @@ export const videoRepository = {
         whatWentWell: input.whatWentWell,
         whatWentWrong: input.whatWentWrong,
         reviewStatus: input.reviewStatus,
-        authorAccountId
-        // visibility default 'private'
+        authorAccountId,
+        visibility: resolved.visibility,
+        sharedAt: resolved.sharedAt ?? null,
+        shareSlug: resolved.shareSlug ?? null
       },
       include: VIDEO_INCLUDE
     })
@@ -127,6 +139,21 @@ export const videoRepository = {
 
   async update(input: UpdateVideoInput): Promise<VideoDto> {
     const { id, ...data } = input
+
+    const existing = await prisma.videoEntry.findUnique({
+      where: { id },
+      select: { visibility: true, shareSlug: true }
+    })
+    if (!existing) {
+      throw new Error('El video no existe.')
+    }
+
+    const resolved = await resolveVisibilityChange({
+      requested: data.visibility,
+      current: existing.visibility as Visibility,
+      currentSlug: existing.shareSlug
+    })
+
     const updated = await prisma.videoEntry.update({
       where: { id },
       data: {
@@ -136,7 +163,10 @@ export const videoRepository = {
         notes: data.notes,
         whatWentWell: data.whatWentWell,
         whatWentWrong: data.whatWentWrong,
-        reviewStatus: data.reviewStatus
+        reviewStatus: data.reviewStatus,
+        visibility: resolved.visibility,
+        ...(resolved.sharedAt !== undefined && { sharedAt: resolved.sharedAt }),
+        ...(resolved.shareSlug !== undefined && { shareSlug: resolved.shareSlug })
       },
       include: VIDEO_INCLUDE
     })

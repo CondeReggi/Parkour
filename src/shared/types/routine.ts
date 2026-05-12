@@ -53,6 +53,10 @@ export interface RoutineDto {
    */
   authorAccountId: string | null
   visibility: Visibility
+  /** ISO. Cuándo se publicó. */
+  sharedAt: string | null
+  /** Slug estable para link no listado. */
+  shareSlug: string | null
 }
 
 export interface RoutineRecommendationDto {

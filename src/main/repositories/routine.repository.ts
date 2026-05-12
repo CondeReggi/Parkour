@@ -55,6 +55,8 @@ function toDto(r: RoutineWithRelations): RoutineDto {
     avoidsInjuries: parseStringArray(r.avoidsInjuries),
     authorAccountId: r.authorAccountId,
     visibility: r.visibility as RoutineDto['visibility'],
+    sharedAt: r.sharedAt ? r.sharedAt.toISOString() : null,
+    shareSlug: r.shareSlug,
     blocks: r.blocks
       .slice()
       .sort((a, b) => a.order - b.order)

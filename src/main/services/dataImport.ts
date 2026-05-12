@@ -109,6 +109,8 @@ export const exportPayloadSchema = z.object({
       avoidsInjuries: z.string(),
       // Fase 0: default 'private' para exports viejos.
       visibility: z.string().optional().default('private'),
+      sharedAt: nullableIso.optional().default(null),
+      shareSlug: nullableStr.optional().default(null),
       createdAt: isoString,
       updatedAt: isoString
     })
@@ -160,6 +162,8 @@ export const exportPayloadSchema = z.object({
       longitude: z.number().nullable().optional().default(null),
       // Fase 0.
       visibility: z.string().optional().default('private'),
+      sharedAt: nullableIso.optional().default(null),
+      shareSlug: nullableStr.optional().default(null),
       createdAt: isoString,
       updatedAt: isoString
     })
@@ -262,6 +266,8 @@ export const exportPayloadSchema = z.object({
       reviewStatus: z.string(),
       // Fase 0.
       visibility: z.string().optional().default('private'),
+      sharedAt: nullableIso.optional().default(null),
+      shareSlug: nullableStr.optional().default(null),
       createdAt: isoString,
       updatedAt: isoString
     })
@@ -453,6 +459,8 @@ export async function applyImportPayload(
           suitableForFatigue: r.suitableForFatigue,
           avoidsInjuries: r.avoidsInjuries,
           visibility: r.visibility,
+          sharedAt: r.sharedAt ? new Date(r.sharedAt) : null,
+          shareSlug: r.shareSlug,
           // Fase 0: la identidad de auth NO se exporta — el author
           // queda null en el destino. Si más adelante hay sync con
           // backend, el "reclamo de autoría" se hace ahí.
@@ -518,6 +526,8 @@ export async function applyImportPayload(
           latitude: s.latitude,
           longitude: s.longitude,
           visibility: s.visibility,
+          sharedAt: s.sharedAt ? new Date(s.sharedAt) : null,
+          shareSlug: s.shareSlug,
           authorAccountId: null, // Fase 0: identidad no se importa
           createdAt: new Date(s.createdAt),
           updatedAt: new Date(s.updatedAt)
@@ -670,6 +680,8 @@ export async function applyImportPayload(
           whatWentWrong: v.whatWentWrong,
           reviewStatus: v.reviewStatus,
           visibility: v.visibility,
+          sharedAt: v.sharedAt ? new Date(v.sharedAt) : null,
+          shareSlug: v.shareSlug,
           authorAccountId: null, // Fase 0: identidad no se importa
           createdAt: new Date(v.createdAt),
           updatedAt: new Date(v.updatedAt)

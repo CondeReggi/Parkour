@@ -34,6 +34,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { MovementProgressForm } from './components/MovementProgressForm'
+import { CommentsSection } from '@/features/comments/components/CommentsSection'
 import { cn } from '@/lib/utils'
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -596,6 +597,11 @@ export function MovementDetailPage() {
 
         <MovementProgressForm movement={movement} />
       </div>
+
+      <CommentsSection
+        target={{ kind: 'movement', id: movement.id }}
+        title="Tips y comentarios"
+      />
     </div>
   )
 }

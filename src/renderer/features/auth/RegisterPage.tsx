@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { UserPlus } from 'lucide-react'
+import { UserCircle2, UserPlus } from 'lucide-react'
 import {
   registerInputSchema,
   type RegisterInput
@@ -22,12 +22,17 @@ import { Separator } from '@/components/ui/separator'
 import { MotionPage } from '@/components/motion/MotionPage'
 import { AuthShell } from './components/AuthShell'
 import { GoogleSignInButton } from './components/GoogleSignInButton'
-import { useRegister, useSignInWithGoogle } from './hooks/useAuth'
+import {
+  useContinueLocal,
+  useRegister,
+  useSignInWithGoogle
+} from './hooks/useAuth'
 
 export function RegisterPage() {
   const navigate = useNavigate()
   const registerMut = useRegister()
   const googleMut = useSignInWithGoogle()
+  const localMut = useContinueLocal()
   const [feedback, setFeedback] = useState<string | null>(null)
 
   const form = useForm<RegisterInput>({
@@ -60,7 +65,14 @@ export function RegisterPage() {
     }
   }
 
-  const submitting = registerMut.isPending || googleMut.isPending
+  async function handleContinueLocal() {
+    setFeedback(null)
+    await localMut.mutateAsync()
+    navigate('/dashboard')
+  }
+
+  const submitting =
+    registerMut.isPending || googleMut.isPending || localMut.isPending
 
   return (
     <MotionPage>
@@ -184,6 +196,22 @@ export function RegisterPage() {
           className="w-full"
           label="Crear cuenta con Google"
         />
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="w-full mt-3 text-muted-foreground hover:text-foreground"
+          onClick={handleContinueLocal}
+          disabled={submitting}
+        >
+          <UserCircle2 className="h-4 w-4" />
+          {localMut.isPending ? 'Entrando…' : 'Continuar sin cuenta'}
+        </Button>
+        <p className="text-[11px] text-muted-foreground text-center mt-2 leading-snug">
+          Tus datos quedan locales y podés crear la cuenta más adelante
+          desde Configuración.
+        </p>
       </AuthShell>
     </MotionPage>
   )

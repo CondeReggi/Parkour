@@ -42,6 +42,7 @@ import {
   SPOT_TYPE_OPTIONS
 } from './spotEnums'
 import { SpotLocationPicker } from './SpotLocationPicker'
+import { VisibilitySelector } from '@/features/sharing/components/VisibilitySelector'
 
 const defaultValues: SpotFormValues = {
   name: '',
@@ -57,7 +58,8 @@ const defaultValues: SpotFormValues = {
   tags: [],
   isFavorite: false,
   latitude: null,
-  longitude: null
+  longitude: null,
+  visibility: 'private'
 }
 
 function spotToFormValues(s: SpotDto): SpotFormValues {
@@ -75,7 +77,8 @@ function spotToFormValues(s: SpotDto): SpotFormValues {
     tags: s.tags,
     isFavorite: s.isFavorite,
     latitude: s.latitude,
-    longitude: s.longitude
+    longitude: s.longitude,
+    visibility: s.visibility
   }
 }
 
@@ -499,6 +502,24 @@ export function SpotForm({ initial, onCreated }: Props) {
                   </FormControl>
                   <FormMessage />
                 </FormItem>
+              )}
+            />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Compartir</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <FormField
+              control={form.control}
+              name="visibility"
+              render={({ field }) => (
+                <VisibilitySelector
+                  value={field.value}
+                  onChange={field.onChange}
+                />
               )}
             />
           </CardContent>

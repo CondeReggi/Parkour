@@ -37,6 +37,8 @@ import { xpEventRepository } from './xpEvent.repository'
 import { questRepository } from './quest.repository'
 import { achievementRepository } from './achievement.repository'
 import { authService } from '../services/authService'
+import { resolveVisibilityChange } from '../services/visibilityGuard'
+import type { Visibility } from '@shared/types/sharing'
 
 const FULL_SPOT_INCLUDE = {
   obstacles: {
@@ -193,6 +195,8 @@ function spotToDto(s: SpotWithRelations, agg: SessionAgg | undefined): SpotDto {
     longitude: s.longitude,
     authorAccountId: s.authorAccountId,
     visibility: s.visibility as SpotDto['visibility'],
+    sharedAt: s.sharedAt ? s.sharedAt.toISOString() : null,
+    shareSlug: s.shareSlug,
     photos: s.photos
       .slice()
       .sort((a, b) => a.order - b.order || a.createdAt.getTime() - b.createdAt.getTime())
@@ -242,11 +246,19 @@ export const spotRepository = {
   },
 
   async create(input: CreateSpotInput): Promise<SpotDto> {
-    // Fase 0: si hay sesión activa, sembramos el autor. Sin sesión
-    // queda null (caso teóricamente imposible porque AuthGuard
-    // protege la app, pero defendemos por si en el futuro hay flujos
-    // que bypaseen el guard).
+    // Si hay sesión activa, sembramos el autor; sin sesión queda null.
+    // El AuthGuard protege la app, pero defendemos por si en el futuro
+    // hay flujos que bypaseen el guard.
     const authorAccountId = await authService.getCurrentAccountId()
+
+    // El guard valida (no se puede pedir public/unlisted sin sesión) y
+    // resuelve sharedAt/shareSlug.
+    const resolved = await resolveVisibilityChange({
+      requested: input.visibility,
+      current: null,
+      currentSlug: null
+    })
+
     const created = await prisma.spot.create({
       data: {
         name: input.name,
@@ -263,8 +275,10 @@ export const spotRepository = {
         isFavorite: input.isFavorite,
         latitude: input.latitude,
         longitude: input.longitude,
-        authorAccountId
-        // visibility queda en su default ('private')
+        authorAccountId,
+        visibility: resolved.visibility,
+        sharedAt: resolved.sharedAt ?? null,
+        shareSlug: resolved.shareSlug ?? null
       },
       include: FULL_SPOT_INCLUDE
     })
@@ -286,6 +300,23 @@ export const spotRepository = {
 
   async update(input: UpdateSpotInput): Promise<SpotDto> {
     const { id, ...data } = input
+
+    // Para resolver bien la transición necesitamos saber qué visibility
+    // y qué shareSlug tenía antes.
+    const existing = await prisma.spot.findUnique({
+      where: { id },
+      select: { visibility: true, shareSlug: true }
+    })
+    if (!existing) {
+      throw new Error('El spot no existe.')
+    }
+
+    const resolved = await resolveVisibilityChange({
+      requested: data.visibility,
+      current: existing.visibility as Visibility,
+      currentSlug: existing.shareSlug
+    })
+
     const updated = await prisma.spot.update({
       where: { id },
       data: {
@@ -302,7 +333,12 @@ export const spotRepository = {
         tags: JSON.stringify(data.tags),
         isFavorite: data.isFavorite,
         latitude: data.latitude,
-        longitude: data.longitude
+        longitude: data.longitude,
+        visibility: resolved.visibility,
+        // sharedAt: si undefined no se toca, si null se nullea.
+        ...(resolved.sharedAt !== undefined && { sharedAt: resolved.sharedAt }),
+        // shareSlug sólo se setea si vino nuevo; nunca lo borramos.
+        ...(resolved.shareSlug !== undefined && { shareSlug: resolved.shareSlug })
       },
       include: FULL_SPOT_INCLUDE
     })

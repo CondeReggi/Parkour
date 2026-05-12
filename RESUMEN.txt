@@ -166,6 +166,100 @@ Fase Biblioteca de movimientos mejorada:
     "Cuando domines este" (next movements), sección "Aparece en estas
     rutinas", sección "Videos asociados".
 
+Fase Auth (cuentas y modo local):
+  ✓ UserAccount + AuthSession + AppSettings.currentAuthSessionId.
+  ✓ Registro local con email + password (bcryptjs, 10 rounds, hash
+    nunca expuesto al renderer).
+  ✓ Login local: defensa contra enumeration (mensaje genérico
+    "Email o contraseña inválidos").
+  ✓ Sign-in con Google: Authorization Code + PKCE + state CSRF +
+    loopback redirect en 127.0.0.1:<puerto-random>. Scopes mínimos
+    (openid email profile). shell.openExternal para abrir el browser
+    del SO; nunca embebimos la página de Google.
+  ✓ Sesión: cada login crea una AuthSession; logout = revokedAt +
+    limpiar AppSettings.currentAuthSessionId. Histórico preservado.
+  ✓ Vinculación automática profile ↔ account en login (touchLogin).
+    El perfil local existente no se duplica; se asocia.
+  ✓ Modo local explícito: flag localStorage parkour:auth:choseLocal=1
+    seteada por useContinueLocal y limpiada por logout / register /
+    login / googleSignIn. AuthGuard deja pasar mode='local' sólo si
+    el flag está seteado; si no, redirect a /login.
+  ✓ Rutas /login y /register públicas; el resto protegido por
+    AuthGuard. Sidebar y Settings tienen un AuthSection que muestra
+    la cuenta o un CTA "Modo local · Entrar".
+
+Fase Perfil público:
+  ✓ Extiende UserAccount con username (unique, lowercase), bio,
+    avatarUrl, coverImageUrl, isPublicProfile (master switch) y 4
+    toggles granulares: showLevel, showStats, showDominatedMovements,
+    showSharedSpots.
+  ✓ Ruta /u/:username: vista pública discriminada por visibility
+    ('public' | 'private' | 'not_found'). Nunca expone email.
+  ✓ Sección "Perfil público" dentro de /profile (no es una página
+    aparte): por default muestra sólo vista previa con botón
+    "Editar"; al apretar, se reemplaza por el editor con form de
+    identidad + privacidad. Tras guardar vuelve a la preview.
+  ✓ Username validado por Zod: 3-30 chars, [a-z0-9_-], no empieza ni
+    termina con guion/underscore. Auto-chequeo de disponibilidad con
+    staleTime 30s (sin debounce explícito).
+  ✓ Stats públicas calculadas al vuelo desde UserProfile vinculado
+    (nivel, XP total, sesiones, mastered count, top 20 dominados, top
+    20 spots con visibility=public). Filtradas por flags.
+
+Fase Sharing layer (visibilidad de contenido):
+  ✓ Spot, Routine, VideoEntry: visibility (private/public/unlisted,
+    default private), authorAccountId (sembrado en create), sharedAt
+    (timestamp de transición a non-private), shareSlug (slug random
+    base64url estable, se conserva al re-privatizar).
+  ✓ services/visibilityGuard.ts: pura. Resuelve transiciones,
+    genera shareSlug, valida que sólo cuentas autenticadas puedan
+    pasar a public/unlisted (sin sesión → Error con mensaje legible).
+  ✓ <VisibilitySelector /> reutilizable: 3 opciones con microcopy,
+    deshabilitado en modo local + Alert "Para compartir necesitás
+    iniciar sesión", warning si perfil público está privado.
+  ✓ Selector integrado en SpotForm y VideoFormDialog. Export/import
+    incluye sharedAt y shareSlug (defaults a null para tolerar
+    exports viejos). authorAccountId nunca viaja en el JSON.
+
+Fase Comunidad — Posts:
+  ✓ Modelo Post: authorAccountId (Cascade, required), title, body,
+    type (question | progress | advice | shared_spot | shared_routine
+    | video_review | achievement | general), visibility (default
+    'public'), status (active | hidden | deleted | reported), 5 FKs
+    opcionales (Movement / Spot / Routine / VideoEntry / WorkoutSession,
+    SetNull en delete), createdAt / updatedAt / deletedAt (soft delete).
+  ✓ Permisos: getFeed/getById públicos (filtra non-private+active si
+    no sos el autor); getMine requiere sesión; create/update/delete
+    requieren sesión. Edit y delete sólo por el autor; soft delete.
+  ✓ Rutas /community (feed con filtros por tipo + chips), /community/new,
+    /community/mine, /community/posts/:id (detalle con acciones si sos
+    autor), /community/posts/:id/edit. Sidebar tiene entrada
+    "Comunidad" (ícono MessagesSquare).
+  ✓ Datos sensibles no expuestos en DTO: VideoEntry.filePath y
+    .thumbnailPath nunca llegan al PostVideoRef (sólo id+fileName).
+    Notas personales tampoco.
+  ✓ UI muestra warning si referencias contenido privado en post
+    público (informed consent, no bloquea).
+
+Fase Comentarios (polimórficos):
+  ✓ Modelo Comment con FKs opcionales a Post / Spot / Movement
+    (exactamente una seteada, validado en repo). Cascade en delete
+    del target. authorAccountId required.
+  ✓ Nesting de 1 nivel: parentCommentId self-FK Cascade. El repo
+    rechaza crear reply a reply ("No se permiten respuestas a
+    respuestas") y valida que el parent esté en el mismo target.
+  ✓ Soft delete: status='deleted' + deletedAt. Si el comentario
+    top-level eliminado tiene replies vivas → tombstone "Comentario
+    eliminado" para preservar el hilo; sin replies → se omite.
+  ✓ <CommentsSection target={...}> reutilizable, montada en
+    PostDetailPage, SpotDetailPage, MovementDetailPage. Cualquiera
+    puede leer; modo local muestra CTA "Para comentar necesitás
+    iniciar sesión" en lugar del form.
+  ✓ Conteo en PostCard: nuevo PostDto.commentCount, poblado en
+    batch con prisma.comment.groupBy (no N+1).
+  ✓ Editar inline / responder inline con CornerDownRight + border
+    izquierdo para indicar nesting. Confirm de delete en dos pasos.
+
 ================================================================================
 3. ESTRUCTURA DE CARPETAS
 ================================================================================
@@ -422,6 +516,68 @@ Modelos de gamificación:
     @@index([profileId, date])
     type: 'active_recovery' (sólo persiste manual; training y rest se derivan)
 
+Modelos de auth y comunidad:
+
+  UserAccount
+    @@unique([provider, providerUserId])
+    provider: 'password' | 'google'
+    providerUserId: para password = email lowercase; para google = sub
+    passwordHash: bcrypt (sólo 'password'), NUNCA en DTO
+    accessToken/refreshToken/idToken/expiresAt: tokens OAuth, NUNCA en DTO
+    profileId @unique: relación 1:1 opcional con UserProfile
+    Campos de perfil público (Fase 0 + extensión):
+      username (unique, lowercase), bio, avatarUrl, coverImageUrl,
+      isPublicProfile (master), showLevel, showStats,
+      showDominatedMovements, showSharedSpots (toggles granulares)
+    Relaciones inversas: authoredSpots, authoredRoutines, authoredVideos,
+                         posts, comments, sessions (AuthSession)
+
+  AuthSession
+    @@index([userAccountId, createdAt])
+    expiresAt: null en local-first
+    revokedAt: timestamp de logout
+
+  AppSettings (additions)
+    currentAuthSessionId: puntero a la sesión activa (null = modo local)
+
+Entidades shareables (sharing layer):
+
+  Spot, Routine, VideoEntry
+    authorAccountId: FK → UserAccount, SetNull en delete del autor
+    visibility: 'private' (default) | 'public' | 'unlisted'
+    sharedAt: timestamp del último cambio a non-private (null si nunca)
+    shareSlug: random base64url 16 chars, único, generado la primera vez
+               que sale de private; se conserva al re-privatizar
+
+Comunidad:
+
+  Post
+    @@index([authorAccountId, createdAt])
+    @@index([status, visibility, createdAt])
+    @@index([type, createdAt])
+    authorAccountId: required, Cascade
+    type: question | progress | advice | shared_spot | shared_routine |
+          video_review | achievement | general
+    visibility: default 'public' (un post tiene sentido en el feed)
+    status: active | hidden | deleted | reported (default active)
+    relatedMovementId / relatedSpotId / relatedRoutineId /
+      relatedVideoId / relatedSessionId: opcionales, SetNull en delete
+    deletedAt: soft delete
+
+  Comment
+    @@index([postId, createdAt])
+    @@index([spotId, createdAt])
+    @@index([movementId, createdAt])
+    @@index([parentCommentId, createdAt])
+    @@index([authorAccountId, createdAt])
+    POLIMÓRFICO: exactamente UNO de postId/spotId/movementId seteado
+    (validación en repo, SQLite no soporta CHECK multi-columna).
+    Cascade en delete del target.
+    parentCommentId: self-FK Cascade. Nesting de 1 nivel — el repo
+    rechaza crear reply a reply.
+    status: active | hidden | deleted | reported
+    deletedAt: soft delete
+
 ================================================================================
 5. CONTRATO IPC (src/shared/api.ts)
 ================================================================================
@@ -446,9 +602,20 @@ window.parkourApi expone:
   quests:        listForActive · claim
   achievements:  listForActive · recentForActive
   streak:        getState · markActiveRecovery
+  auth:          getState · register · login · signInWithGoogle · logout ·
+                 continueLocal · linkCurrentProfile
+  publicProfile: getMine · upsertMine · checkUsernameAvailability ·
+                 getByUsername · setPrivacy
+  posts:         getFeed · getMine · getById · getByAuthor · create ·
+                 update · delete
+  comments:      getByTarget · countByTarget · create · update · delete
+                 (target: { kind: 'post'|'spot'|'movement', id })
 
 Channel naming: '<feature>:<method>'.
 Cada handler valida con Zod ANTES de tocar el repo.
+Los handlers que requieren sesión activa (posts:create, comments:create,
+publicProfile:upsertMine, etc.) chequean authService.getCurrentAccountId()
+y tiran un Error con mensaje legible si no hay sesión.
 
 ================================================================================
 6. PROTOCOLO parkour-media://
@@ -1085,12 +1252,18 @@ escriben al mismo userData/parkour.db.
 
 Lista única en src/renderer/app/nav.ts. Sidebar y router consumen lo mismo.
 
+  Rutas públicas (fuera del AuthGuard):
+  /login                              Pantalla de login (email+pass / Google /
+                                      continuar sin cuenta)
+  /register                           Registro con email+pass
+
+  Rutas protegidas (bajo AuthGuard — autenticado o modo local explícito):
   / (redirige a /dashboard)
   /dashboard         LayoutDashboard  Dashboard
-  /profile           User             Perfil
+  /profile           User             Perfil (datos personales + perfil público)
   /assessment        ClipboardCheck   Evaluación
   /movements         Activity         Movimientos
-  /movements/:slug                    (detail)
+  /movements/:slug                    (detail, con comentarios + tips)
   /learning-path     Waypoints        Camino
   /routines          ListChecks       Rutinas
   /routines/:slug                     (detail)
@@ -1099,12 +1272,19 @@ Lista única en src/renderer/app/nav.ts. Sidebar y router consumen lo mismo.
   /achievements      Award            Logros
   /spots             MapPin           Spots
   /spots/new                          (alta dedicada)
-  /spots/:id                          (detail)
+  /spots/:id                          (detail, con comentarios)
   /videos            Video            Videos
+  /community         MessagesSquare   Feed comunidad
+  /community/new                      Crear publicación
+  /community/mine                     Mis publicaciones
+  /community/posts/:id                Detalle de post + comentarios
+  /community/posts/:id/edit           Editar post propio
+  /u/:username                        Vista pública por username
   /settings          Settings         Configuración
 
 (Las misiones no tienen ruta propia: la card del dashboard expone un modal
-con la lista completa.)
+con la lista completa. La edición del perfil público vive dentro de
+/profile como sección, no como ruta dedicada.)
 
 ================================================================================
 23. PENDIENTES CONOCIDOS / DECISIONES POSPUESTAS

@@ -15,6 +15,37 @@ export const authKeys = {
 }
 
 /**
+ * Marca explícita de que el usuario eligió "Continuar sin cuenta" en la
+ * pantalla de login. El AuthGuard la usa para distinguir "no decidió
+ * todavía" (→ /login) de "eligió usar local" (→ dejar pasar).
+ *
+ * Vive en localStorage porque es preferencia del dispositivo, no de la
+ * cuenta: si el usuario reinstala la app o limpia datos, vuelve a ver el
+ * login. Lo setea useContinueLocal; lo limpian useLogout, useLogin,
+ * useRegister y useSignInWithGoogle (cuando hubo cuenta).
+ */
+const LOCAL_FLAG_KEY = 'parkour:auth:choseLocal'
+
+export function hasChosenLocalMode(): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    return window.localStorage.getItem(LOCAL_FLAG_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+function setLocalFlag(value: boolean) {
+  if (typeof window === 'undefined') return
+  try {
+    if (value) window.localStorage.setItem(LOCAL_FLAG_KEY, '1')
+    else window.localStorage.removeItem(LOCAL_FLAG_KEY)
+  } catch {
+    // ignore: localStorage puede no estar disponible en algunos entornos
+  }
+}
+
+/**
  * Estado consolidado de auth. Devuelve siempre un objeto con:
  *   - mode: 'local' | 'authenticated'
  *   - account: cuenta actual o null
@@ -57,7 +88,10 @@ export function useRegister() {
   const qc = useQueryClient()
   return useMutation<SignInResultDto, Error, RegisterInput>({
     mutationFn: (input) => window.parkourApi.auth.register(input),
-    onSuccess: () => invalidate(qc)
+    onSuccess: (result) => {
+      if (result.account) setLocalFlag(false)
+      invalidate(qc)
+    }
   })
 }
 
@@ -65,7 +99,10 @@ export function useLogin() {
   const qc = useQueryClient()
   return useMutation<SignInResultDto, Error, LoginInput>({
     mutationFn: (input) => window.parkourApi.auth.login(input),
-    onSuccess: () => invalidate(qc)
+    onSuccess: (result) => {
+      if (result.account) setLocalFlag(false)
+      invalidate(qc)
+    }
   })
 }
 
@@ -73,7 +110,10 @@ export function useSignInWithGoogle() {
   const qc = useQueryClient()
   return useMutation<SignInResultDto, Error, void>({
     mutationFn: () => window.parkourApi.auth.signInWithGoogle(),
-    onSuccess: () => invalidate(qc)
+    onSuccess: (result) => {
+      if (result.account) setLocalFlag(false)
+      invalidate(qc)
+    }
   })
 }
 
@@ -81,7 +121,12 @@ export function useLogout() {
   const qc = useQueryClient()
   return useMutation<void, Error, void>({
     mutationFn: () => window.parkourApi.auth.logout(),
-    onSuccess: () => invalidate(qc)
+    onSuccess: () => {
+      // Después de cerrar sesión queremos que el guard vuelva a empujar
+      // al usuario a /login en su próxima navegación.
+      setLocalFlag(false)
+      invalidate(qc)
+    }
   })
 }
 
@@ -89,7 +134,12 @@ export function useContinueLocal() {
   const qc = useQueryClient()
   return useMutation<void, Error, void>({
     mutationFn: () => window.parkourApi.auth.continueLocal(),
-    onSuccess: () => invalidate(qc)
+    onSuccess: () => {
+      // Marca explícita: el usuario decidió usar la app sin cuenta. El
+      // AuthGuard la usa para no volver a redirigir a /login.
+      setLocalFlag(true)
+      invalidate(qc)
+    }
   })
 }
 

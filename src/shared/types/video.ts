@@ -36,9 +36,16 @@ export interface VideoDto {
   fileMissing: boolean
   /**
    * =====  Fase 0: campos reservados para comunidad futura  =====
+   * IMPORTANTE: filePath/thumbnailPath son rutas absolutas del disco
+   * local. NUNCA deben salir en un payload de "share". Si más adelante
+   * hay feed remoto, el toPublicDto() debe excluirlos.
    */
   authorAccountId: string | null
   visibility: Visibility
+  /** ISO. Cuándo se publicó (visibility ≠ private). */
+  sharedAt: string | null
+  /** Slug estable para link no listado. */
+  shareSlug: string | null
   createdAt: string
   updatedAt: string
 }

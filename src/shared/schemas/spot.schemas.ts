@@ -1,4 +1,7 @@
 import { z } from 'zod'
+import { VISIBILITY_VALUES } from '@shared/types/sharing'
+
+export const visibilityEnum = z.enum(VISIBILITY_VALUES)
 
 export const floorTypeEnum = z.enum(['concrete', 'grass', 'rubber', 'mixed', 'other'])
 export const spotRiskLevelEnum = z.enum(['low', 'moderate', 'high'])
@@ -51,7 +54,14 @@ const spotFormBaseSchema = z.object({
   tags: z.array(z.string().min(1).max(30)).max(20),
   isFavorite: z.boolean(),
   latitude: latitudeSchema,
-  longitude: longitudeSchema
+  longitude: longitudeSchema,
+  /**
+   * Visibilidad pedida por el usuario. La validación "no se puede
+   * marcar public sin sesión" se hace server-side en el guard, no acá
+   * — el form debe poder mandar el valor que el usuario seleccionó.
+   * El backend lo rechaza si corresponde.
+   */
+  visibility: visibilityEnum
 })
 
 const requireBothCoordsOrNone = (val: { latitude: number | null; longitude: number | null }) =>

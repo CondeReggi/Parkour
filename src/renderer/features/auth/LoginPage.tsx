@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { LogIn } from 'lucide-react'
+import { LogIn, UserCircle2 } from 'lucide-react'
 import {
   loginInputSchema,
   type LoginInput
@@ -22,7 +22,11 @@ import { Separator } from '@/components/ui/separator'
 import { MotionPage } from '@/components/motion/MotionPage'
 import { AuthShell } from './components/AuthShell'
 import { GoogleSignInButton } from './components/GoogleSignInButton'
-import { useLogin, useSignInWithGoogle } from './hooks/useAuth'
+import {
+  useContinueLocal,
+  useLogin,
+  useSignInWithGoogle
+} from './hooks/useAuth'
 
 /**
  * URL del doodle de la banana. Es un asset externo gratuito de Vecteezy.
@@ -36,6 +40,7 @@ export function LoginPage() {
   const navigate = useNavigate()
   const loginMut = useLogin()
   const googleMut = useSignInWithGoogle()
+  const localMut = useContinueLocal()
   const [feedback, setFeedback] = useState<string | null>(null)
 
   const form = useForm<LoginInput>({
@@ -63,7 +68,14 @@ export function LoginPage() {
     }
   }
 
-  const submitting = loginMut.isPending || googleMut.isPending
+  async function handleContinueLocal() {
+    setFeedback(null)
+    await localMut.mutateAsync()
+    navigate('/dashboard')
+  }
+
+  const submitting =
+    loginMut.isPending || googleMut.isPending || localMut.isPending
 
   const bananaHero = (
     <div className="flex flex-col items-center gap-1">
@@ -171,6 +183,22 @@ export function LoginPage() {
           className="w-full"
           label="Entrar con Google"
         />
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="w-full mt-3 text-muted-foreground hover:text-foreground"
+          onClick={handleContinueLocal}
+          disabled={submitting}
+        >
+          <UserCircle2 className="h-4 w-4" />
+          {localMut.isPending ? 'Entrando…' : 'Continuar sin cuenta'}
+        </Button>
+        <p className="text-[11px] text-muted-foreground text-center mt-2 leading-snug">
+          Vas a usar la app en este dispositivo. Tus datos quedan locales y
+          podés vincularlos a una cuenta más adelante.
+        </p>
       </AuthShell>
     </MotionPage>
   )

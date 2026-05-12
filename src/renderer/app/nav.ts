@@ -11,6 +11,7 @@ import {
   ListChecks,
   type LucideIcon,
   MapPin,
+  MessagesSquare,
   PlayCircle,
   Settings,
   TrendingUp,
@@ -37,5 +38,6 @@ export const navItems: NavItem[] = [
   { to: '/achievements', label: 'Logros', icon: Award },
   { to: '/spots', label: 'Spots', icon: MapPin },
   { to: '/videos', label: 'Videos', icon: Video },
+  { to: '/community', label: 'Comunidad', icon: MessagesSquare },
   { to: '/settings', label: 'Configuración', icon: Settings }
 ]

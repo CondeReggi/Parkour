@@ -3,6 +3,13 @@
 App de escritorio (Electron + React) local-first para entrenar parkour de
 forma estructurada y segura.
 
+Incluye: perfil + evaluación, biblioteca de movimientos con skill-tree,
+rutinas built-in + recomendador, sesiones de entrenamiento con coach
+guiado, videos locales con review, spots con mapa, gamificación completa
+(XP, misiones, logros, rachas inteligentes), autenticación (email+pass
+o Google), perfil público (`/u/<username>`), feed de comunidad con
+posts y comentarios polimórficos sobre posts/spots/movimientos.
+
 Para una descripción completa de la arquitectura, ver `RESUMEN.txt`.
 
 ---
@@ -133,5 +140,52 @@ src/
 Convención fundamental: las páginas **nunca** llaman
 `window.parkourApi` directo — siempre vía hooks. Cada feature define
 sus queryKeys e invalida en cascada las queries afectadas.
+
+---
+
+## Auth y modo local
+
+La app arranca en `/login`. Tres caminos:
+
+1. **Email + contraseña** — registrarse en `/register` o loguearse en
+   `/login`. Password se guarda como bcrypt hash (10 rounds) y nunca
+   sale del proceso main.
+2. **Google** — Authorization Code + PKCE + loopback redirect. Ver
+   sección "Setup de Google OAuth" arriba.
+3. **Continuar sin cuenta** — botón en `/login` que activa el modo
+   local. Todo funciona menos publicar/comentar/compartir contenido
+   público (la UI muestra el motivo y CTA a login).
+
+`AuthGuard` redirige a `/login` por default; deja pasar el modo local
+sólo cuando el usuario lo eligió explícitamente (flag local en el
+navegador). Logout / register / login limpian esa flag.
+
+---
+
+## Comunidad
+
+- **Perfil público** (`/u/:username`): identidad opcional con username
+  único, bio, avatar, portada y toggles granulares (nivel / stats /
+  movimientos dominados / spots compartidos). Editable como sección
+  dentro de `/profile`. Privacidad por default = privado.
+- **Visibility de contenido** (Spot, Routine, VideoEntry): `private`
+  (default) / `public` / `unlisted` con `sharedAt` + `shareSlug`
+  estable. Sin sesión activa no se puede salir de `private`. Los
+  forms muestran warnings claros si el contenido referenciado
+  contradice la decisión (ej: post público con spot privado).
+- **Posts** (`/community`): feed con filtros por tipo
+  (`question | progress | advice | shared_spot | shared_routine |
+  video_review | achievement | general`). Soft delete; sólo el autor
+  puede editar/borrar; el feed sólo lista `active + non-private`.
+- **Comentarios polimórficos**: el mismo modelo `Comment` cubre
+  posts, spots y movimientos. Nesting de 1 nivel (respuesta a un
+  comentario top-level). Eliminados se conservan como tombstone si
+  tienen replies vivas.
+
+Datos sensibles **nunca** salen al DTO público: filePath/thumbnailPath
+de videos, passwordHash, tokens OAuth, email del autor en posts ajenos,
+notas personales de spot/video.
+
+---
 
 Para más detalle ver `RESUMEN.txt`.

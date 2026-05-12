@@ -17,6 +17,9 @@ import { registerAchievementHandlers } from './achievement.ipc'
 import { registerStreakHandlers } from './streak.ipc'
 import { registerProgressHandlers } from './progress.ipc'
 import { registerAuthHandlers } from './auth.ipc'
+import { registerPublicProfileHandlers } from './publicProfile.ipc'
+import { registerPostHandlers } from './posts.ipc'
+import { registerCommentHandlers } from './comments.ipc'
 
 export function registerHandlers(): void {
   registerMovementHandlers()
@@ -33,4 +36,7 @@ export function registerHandlers(): void {
   registerStreakHandlers()
   registerProgressHandlers()
   registerAuthHandlers()
+  registerPublicProfileHandlers()
+  registerPostHandlers()
+  registerCommentHandlers()
 }

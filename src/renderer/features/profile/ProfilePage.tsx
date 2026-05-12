@@ -4,6 +4,7 @@ import { useActiveProfile } from './hooks/useActiveProfile'
 import { ProfileForm } from './components/ProfileForm'
 import { InjuriesPanel } from './components/InjuriesPanel'
 import { LevelBadge } from './components/LevelBadge'
+import { PublicProfileSection } from '@/features/publicProfile/components/PublicProfileSection'
 
 export function ProfilePage() {
   const { data: profile, isLoading, error } = useActiveProfile()
@@ -14,7 +15,7 @@ export function ProfilePage() {
         title="Perfil"
         description={
           profile
-            ? 'Tus datos personales, experiencia, lesiones y disponibilidad.'
+            ? 'Tus datos personales, experiencia, lesiones y tu perfil público.'
             : 'Empezá creando tu perfil. Estos datos se usan para personalizar las rutinas.'
         }
       >
@@ -36,7 +37,14 @@ export function ProfilePage() {
       {!isLoading && (
         <div className="space-y-6">
           <ProfileForm initial={profile ?? undefined} />
-          {profile && <InjuriesPanel profileId={profile.id} injuries={profile.injuries} />}
+          {profile && (
+            <InjuriesPanel profileId={profile.id} injuries={profile.injuries} />
+          )}
+          {/*
+            Perfil público — sección que vive junto al perfil personal.
+            En modo local muestra un CTA a /login en lugar del editor.
+          */}
+          <PublicProfileSection />
         </div>
       )}
     </div>

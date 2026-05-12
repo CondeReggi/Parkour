@@ -19,6 +19,11 @@ import { LearningPathPage } from '@/features/learningPath/LearningPathPage'
 import { LoginPage } from '@/features/auth/LoginPage'
 import { RegisterPage } from '@/features/auth/RegisterPage'
 import { AuthGuard } from '@/features/auth/components/AuthGuard'
+import { PublicProfilePage } from '@/features/publicProfile/PublicProfilePage'
+import { CommunityPage } from '@/features/community/CommunityPage'
+import { MyPostsPage } from '@/features/community/MyPostsPage'
+import { PostDetailPage } from '@/features/community/PostDetailPage'
+import { PostEditorPage } from '@/features/community/PostEditorPage'
 
 /**
  * Hash router porque en producción Electron carga vía file:// y el
@@ -56,7 +61,17 @@ export const router = createHashRouter([
       { path: 'spots/new', element: <SpotNewPage /> },
       { path: 'spots/:id', element: <SpotDetailPage /> },
       { path: 'videos', element: <VideosPage /> },
-      { path: 'settings', element: <SettingsPage /> }
+      { path: 'settings', element: <SettingsPage /> },
+      // Vista pública por username — `/u/:username`. Hoy resuelve sólo
+      // perfiles locales, pero queda lista para el futuro sync remoto.
+      // La edición vive dentro de /profile como una sección más.
+      { path: 'u/:username', element: <PublicProfilePage /> },
+      // Comunidad — base de publicaciones tipo foro/feed.
+      { path: 'community', element: <CommunityPage /> },
+      { path: 'community/mine', element: <MyPostsPage /> },
+      { path: 'community/new', element: <PostEditorPage /> },
+      { path: 'community/posts/:id', element: <PostDetailPage /> },
+      { path: 'community/posts/:id/edit', element: <PostEditorPage /> }
     ]
   }
 ])

@@ -51,6 +51,34 @@ import type {
   LoginInput,
   RegisterInput
 } from './schemas/auth.schemas'
+import type {
+  MyPublicProfileDto,
+  PublicProfileViewDto,
+  UsernameAvailabilityDto
+} from './types/publicProfile'
+import type {
+  CheckUsernameInput,
+  GetByUsernameInput,
+  SetPrivacyInput,
+  UpdatePublicProfileInput
+} from './schemas/publicProfile.schemas'
+import type { PostDto } from './types/post'
+import type {
+  CreatePostInput,
+  DeletePostInput,
+  GetByAuthorInput,
+  GetFeedInput,
+  GetPostByIdInput,
+  UpdatePostInput
+} from './schemas/post.schemas'
+import type { CommentDto } from './types/comment'
+import type {
+  CreateCommentInput,
+  DeleteCommentInput,
+  GetCommentCountInput,
+  GetCommentsByTargetInput,
+  UpdateCommentInput
+} from './schemas/comment.schemas'
 import type { MarkActiveRecoveryInput } from './schemas/streak.schemas'
 import type {
   CreateProfileInput,
@@ -242,5 +270,59 @@ export interface ParkourApi {
      * Devuelve la cuenta actualizada o null si no hay sesión.
      */
     linkCurrentProfile: () => Promise<AuthAccountDto | null>
+  }
+
+  publicProfile: {
+    /**
+     * Mi perfil público (con preview de lo que se vería en /u/:username
+     * usando la config actual). Null si no hay sesión.
+     */
+    getMine: () => Promise<MyPublicProfileDto | null>
+    /** Crea o actualiza mi perfil público. Requiere sesión. */
+    upsertMine: (input: UpdatePublicProfileInput) => Promise<MyPublicProfileDto>
+    /** Checa si un username está disponible (mi username actual cuenta como disponible). */
+    checkUsernameAvailability: (
+      input: CheckUsernameInput
+    ) => Promise<UsernameAvailabilityDto>
+    /**
+     * Resuelve la vista pública para una URL `/u/:username`. Discrimina
+     * `public | private | not_found` para que la UI no infiera.
+     */
+    getByUsername: (input: GetByUsernameInput) => Promise<PublicProfileViewDto>
+    /** Toggle de visibilidad y de cada sección. Requiere sesión. */
+    setPrivacy: (input: SetPrivacyInput) => Promise<MyPublicProfileDto>
+  }
+
+  posts: {
+    /** Feed público (active + non-private). Filtros opcionales. */
+    getFeed: (input?: GetFeedInput) => Promise<PostDto[]>
+    /** Mis posts (incluye private/unlisted/hidden). [] sin sesión. */
+    getMine: () => Promise<PostDto[]>
+    /** Post por id; null si no se puede ver con los permisos actuales. */
+    getById: (input: GetPostByIdInput) => Promise<PostDto | null>
+    /** Posts de un autor. Aplica los mismos filtros que el feed salvo si sos el autor. */
+    getByAuthor: (input: GetByAuthorInput) => Promise<PostDto[]>
+    /** Crear post. Requiere sesión. */
+    create: (input: CreatePostInput) => Promise<PostDto>
+    /** Editar post propio. Tira error si no sos el autor. */
+    update: (input: UpdatePostInput) => Promise<PostDto>
+    /** Soft delete: status='deleted', deletedAt=now. Idempotente. */
+    delete: (input: DeletePostInput) => Promise<void>
+  }
+
+  comments: {
+    /**
+     * Comentarios de un target (post/spot/movement), agrupados como
+     * top-level con sus replies anidadas (1 nivel).
+     */
+    getByTarget: (input: GetCommentsByTargetInput) => Promise<CommentDto[]>
+    /** Cantidad de comentarios no eliminados. Útil para mostrar "N comentarios". */
+    countByTarget: (input: GetCommentCountInput) => Promise<number>
+    /** Crear comentario o respuesta. Requiere sesión. */
+    create: (input: CreateCommentInput) => Promise<CommentDto>
+    /** Editar comentario propio. */
+    update: (input: UpdateCommentInput) => Promise<CommentDto>
+    /** Soft delete: status='deleted', deletedAt=now. Idempotente. */
+    delete: (input: DeleteCommentInput) => Promise<void>
   }
 }

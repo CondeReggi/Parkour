@@ -189,7 +189,10 @@ export function FeedbackStep({
           notes: v.notes,
           whatWentWell: v.whatWentWell,
           whatWentWrong: v.whatWentWrong,
-          reviewStatus: v.reviewStatus
+          reviewStatus: v.reviewStatus,
+          // Preserva la visibility actual: no la cambiamos al asociar
+          // el video con la sesión.
+          visibility: v.visibility
         })
       } catch {
         // dejamos seguir; el usuario puede asociar después desde /videos.

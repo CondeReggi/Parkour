@@ -93,6 +93,10 @@ export interface ExportedCustomRoutine {
   /** Reservado Fase 0. Por ahora siempre null en export (no exportamos
    *  identidad de auth) y se rehidrata como null al importar. */
   visibility: string
+  /** ISO. Cuándo se publicó. Null si nunca. */
+  sharedAt: string | null
+  /** Slug estable para link. Null si nunca se publicó. */
+  shareSlug: string | null
   createdAt: string
   updatedAt: string
 }
@@ -141,6 +145,8 @@ export interface ExportedSpot {
   /** Reservado Fase 0. La identidad de auth NO se exporta — el
    *  authorAccountId se rehidrata como null en el destino. */
   visibility: string
+  sharedAt: string | null
+  shareSlug: string | null
   createdAt: string
   updatedAt: string
 }
@@ -275,6 +281,8 @@ export interface ExportedVideoEntry {
   reviewStatus: string
   /** Reservado Fase 0. */
   visibility: string
+  sharedAt: string | null
+  shareSlug: string | null
   createdAt: string
   updatedAt: string
 }

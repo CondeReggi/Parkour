@@ -44,6 +44,7 @@ import {
 } from '../hooks/useVideoMutations'
 import { REVIEW_STATUS_OPTIONS } from './videoEnums'
 import { VideoPlayer } from './VideoPlayer'
+import { VisibilitySelector } from '@/features/sharing/components/VisibilitySelector'
 
 const NONE_VALUE = '__none__'
 
@@ -54,7 +55,8 @@ const defaultValues: VideoFormValues = {
   notes: null,
   whatWentWell: null,
   whatWentWrong: null,
-  reviewStatus: 'pending'
+  reviewStatus: 'pending',
+  visibility: 'private'
 }
 
 function videoToFormValues(v: VideoDto): VideoFormValues {
@@ -65,7 +67,8 @@ function videoToFormValues(v: VideoDto): VideoFormValues {
     notes: v.notes,
     whatWentWell: v.whatWentWell,
     whatWentWrong: v.whatWentWrong,
-    reviewStatus: v.reviewStatus
+    reviewStatus: v.reviewStatus,
+    visibility: v.visibility
   }
 }
 
@@ -360,6 +363,18 @@ export function VideoFormDialog({ open, onOpenChange, video, picked }: Props) {
                     </FormControl>
                     <FormMessage />
                   </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="visibility"
+                render={({ field }) => (
+                  <VisibilitySelector
+                    value={field.value}
+                    onChange={field.onChange}
+                    label="Compartir"
+                  />
                 )}
               />
 

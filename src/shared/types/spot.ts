@@ -107,6 +107,10 @@ export interface SpotDto {
    */
   authorAccountId: string | null
   visibility: Visibility
+  /** ISO. Cuándo se publicó (visibility ≠ private). */
+  sharedAt: string | null
+  /** Slug estable para link no listado. Existe si alguna vez salió de private. */
+  shareSlug: string | null
   createdAt: string
   updatedAt: string
 }

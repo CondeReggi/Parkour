@@ -1,14 +1,19 @@
 import { Navigate, useLocation } from 'react-router-dom'
-import { useAuthState } from '../hooks/useAuth'
+import { hasChosenLocalMode, useAuthState } from '../hooks/useAuth'
 
 /**
- * Guard de rutas protegidas. Si no hay sesión activa, redirige a
- * `/login` preservando la ruta original en `state.from` para que el
- * login pueda volver después (lo dejamos preparado aunque hoy no lo
- * usemos).
+ * Guard de rutas protegidas.
  *
- * Mientras la query de auth carga, mostramos un placeholder neutro —
- * así no flashea el redirect antes de saber si hay sesión.
+ * Política:
+ *  - `mode === 'authenticated'` → pasa.
+ *  - `mode === 'local'` + flag explícita "elegí seguir sin cuenta" →
+ *    pasa. La flag la setea `useContinueLocal` y la limpian login,
+ *    register, googleSignIn y logout.
+ *  - Cualquier otro caso → redirect a `/login`, preservando la ruta
+ *    original en `state.from` para volver después de iniciar sesión.
+ *
+ * Mientras la query carga mostramos un placeholder — sin esto, el primer
+ * frame redirige a /login y se ve un flash incómodo.
  */
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const location = useLocation()
@@ -22,7 +27,10 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     )
   }
 
-  if (!data || data.mode !== 'authenticated') {
+  const authenticated = data?.mode === 'authenticated'
+  const allowedLocal = data?.mode === 'local' && hasChosenLocalMode()
+
+  if (!authenticated && !allowedLocal) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />
   }
 

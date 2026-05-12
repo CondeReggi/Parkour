@@ -1,6 +1,8 @@
 import { z } from 'zod'
+import { VISIBILITY_VALUES } from '@shared/types/sharing'
 
 export const videoReviewStatusEnum = z.enum(['pending', 'reviewed', 'improved'])
+export const visibilityEnum = z.enum(VISIBILITY_VALUES)
 
 const nullableId = z.string().min(1).nullable()
 
@@ -11,7 +13,12 @@ export const videoFormSchema = z.object({
   notes: z.string().max(1000).nullable(),
   whatWentWell: z.string().max(1000).nullable(),
   whatWentWrong: z.string().max(1000).nullable(),
-  reviewStatus: videoReviewStatusEnum
+  reviewStatus: videoReviewStatusEnum,
+  /**
+   * Visibility "deseada" por el usuario. La validación contra sesión
+   * activa la hace el guard server-side; el form puede pedir el cambio.
+   */
+  visibility: visibilityEnum
 })
 export type VideoFormValues = z.infer<typeof videoFormSchema>
 

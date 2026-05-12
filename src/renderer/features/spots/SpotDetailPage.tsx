@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils'
 import { useSpotById } from './hooks/useSpots'
 import { useDeleteSpot, useSetSpotFavorite } from './hooks/useSpotMutations'
 import { SpotForm } from './components/SpotForm'
+import { CommentsSection } from '@/features/comments/components/CommentsSection'
 import { ObstaclesPanel } from './components/ObstaclesPanel'
 import { SpotPhotosGallery } from './components/SpotPhotosGallery'
 import { SpotLocationCard } from './components/SpotLocationCard'
@@ -254,6 +255,8 @@ export function SpotDetailPage() {
         <SpotSessionHistory spotId={spot.id} />
         <SpotVideosList spotId={spot.id} />
       </div>
+
+      <CommentsSection target={{ kind: 'spot', id: spot.id }} />
 
       <PageHeader
         title="Editar datos del spot"
